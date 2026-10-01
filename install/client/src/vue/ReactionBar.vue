@@ -343,7 +343,9 @@ async function loadVoters(): Promise<void> {
 
 .mtai-reaction__panel {
   position: absolute;
-  bottom: calc(100% + 8px);
+  /* вниз от кнопки: на карточке фото кнопка в верхнем левом углу,
+     панель ложится на изображение и ничем не обрезается */
+  top: calc(100% + 8px);
   left: 0;
   z-index: 30;
   display: flex;
@@ -375,7 +377,7 @@ async function loadVoters(): Promise<void> {
 
 .mtai-reaction__voters {
   position: absolute;
-  bottom: calc(100% + 8px);
+  top: calc(100% + 8px);
   left: 0;
   z-index: 30;
   width: 260px;

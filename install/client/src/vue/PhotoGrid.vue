@@ -122,7 +122,8 @@ function formatSize(size: number): string {
 .mtai-photo-card {
   position: relative;
   border-radius: 8px;
-  overflow: hidden;
+  /* без overflow: hidden — он обрезал бы всплывающую панель реакций;
+     скругление углов у картинки и градиентной подписи */
   background: #eef1f5;
 }
 
@@ -131,6 +132,7 @@ function formatSize(size: number): string {
   width: 100%;
   aspect-ratio: 1 / 1;
   object-fit: cover;
+  border-radius: 8px;
   cursor: zoom-in;
 }
 
@@ -145,6 +147,7 @@ function formatSize(size: number): string {
   gap: 8px;
   padding: 22px 10px 8px;
   background: linear-gradient(transparent, rgba(15, 18, 22, 0.72));
+  border-radius: 0 0 8px 8px;
   color: #fff;
   opacity: 0;
   transition: opacity 0.15s ease;
@@ -162,10 +165,11 @@ function formatSize(size: number): string {
   white-space: nowrap;
 }
 
+/* верхний левый угол: внизу карточка занята всплывающей подписью фото */
 .mtai-photo-card__reaction {
   position: absolute;
-  right: 8px;
-  bottom: 8px;
+  left: 8px;
+  top: 8px;
   z-index: 5;
 }
 
