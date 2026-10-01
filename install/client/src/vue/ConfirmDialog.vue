@@ -81,6 +81,14 @@ async function confirm(): Promise<void> {
 </template>
 
 <style scoped>
+/* диалог телепортируется в body — вне .mtai-gallery, глобального box-sizing нет */
+.mtai-modal,
+.mtai-modal *,
+.mtai-modal *::before,
+.mtai-modal *::after {
+  box-sizing: border-box;
+}
+
 .mtai-modal {
   position: fixed;
   inset: 0;
@@ -93,6 +101,8 @@ async function confirm(): Promise<void> {
 
 .mtai-modal__dialog {
   width: min(400px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
   background: #fff;
   border-radius: 12px;
   padding: 20px;

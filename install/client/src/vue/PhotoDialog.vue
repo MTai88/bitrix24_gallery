@@ -106,6 +106,15 @@ async function submit(): Promise<void> {
 </template>
 
 <style scoped>
+/* диалог телепортируется в body — вне .mtai-gallery, глобального box-sizing
+   нет; width:100% у полей с padding/border вылезал за окно */
+.mtai-modal,
+.mtai-modal *,
+.mtai-modal *::before,
+.mtai-modal *::after {
+  box-sizing: border-box;
+}
+
 .mtai-modal {
   position: fixed;
   inset: 0;
@@ -118,6 +127,8 @@ async function submit(): Promise<void> {
 
 .mtai-modal__dialog {
   width: min(420px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
   background: #fff;
   border-radius: 12px;
   padding: 20px;
