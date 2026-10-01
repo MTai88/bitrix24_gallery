@@ -280,12 +280,13 @@ class Album extends Base
 	}
 
 	/**
-	 * Обложка альбома — самая свежая фотография (включая подразделы).
+	 * Обложка альбома — первая фотография по ручной сортировке (тот же
+	 * порядок, что и в сетке; включая подразделы).
 	 */
 	private function findCover(int $iblockId, int $sectionId): ?array
 	{
 		$row = CIBlockElement::GetList(
-			['ID' => 'DESC'],
+			['SORT' => 'ASC', 'ID' => 'DESC'],
 			[
 				'IBLOCK_ID' => $iblockId,
 				'SECTION_ID' => $sectionId,
