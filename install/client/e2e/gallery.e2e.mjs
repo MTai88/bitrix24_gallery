@@ -232,19 +232,27 @@ try {
   report('счётчик реакции альбома на карточке', (await seedAlbumCard.locator('.mtai-reaction__count').innerText()).trim() === '1');
   await seedAlbumCard.click();
 
-  // 9. Переименование фото через диалог
+  // 9. Переименование фото и подпись через диалог
   await firstCard.hover();
   await firstCard.locator('button[title="Изменить название и подпись"]').click();
   const nameInput = page.locator('.mtai-modal__input');
   await nameInput.waitFor({ state: 'visible', timeout: 5000 });
   await nameInput.fill('E2E переименованное фото');
+  await page.locator('.mtai-modal__textarea').fill('E2E подпись к фотографии');
   await page.locator('.mtai-modal__btn--primary').click();
   await page.waitForFunction(
-    () => document.querySelector('.mtai-photo-card__name')?.textContent?.includes('E2E'),
+    () => {
+      const name = document.querySelector('.mtai-photo-card__name')?.textContent?.includes('E2E');
+      const description = document
+        .querySelector('.mtai-photo-card__description')
+        ?.textContent
+        ?.includes('E2E подпись');
+      return name && description;
+    },
     null,
     { timeout: 10000 },
   );
-  report('переименование фото', true);
+  report('переименование фото и подпись (выводится на карточке)', true);
 
   // 10. Замена изображения в попапе редактирования (FilePond в модалке).
   // Буфер обязан отличаться от сид-фото байт-в-байт: CFile дедуплицирует

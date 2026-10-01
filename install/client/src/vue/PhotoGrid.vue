@@ -52,10 +52,17 @@ function formatSize(size: number): string {
         loading="lazy"
       >
       <div class="mtai-photo-card__overlay">
-        <span
-          class="mtai-photo-card__name"
-          :title="photo.name"
-        >{{ photo.name }}</span>
+        <div class="mtai-photo-card__texts">
+          <span
+            class="mtai-photo-card__name"
+            :title="photo.name"
+          >{{ photo.name }}</span>
+          <span
+            v-if="photo.description"
+            class="mtai-photo-card__description"
+            :title="photo.description"
+          >{{ photo.description }}</span>
+        </div>
         <span
           v-if="photo.size"
           class="mtai-photo-card__size"
@@ -142,7 +149,7 @@ function formatSize(size: number): string {
   right: 0;
   bottom: 0;
   display: flex;
-  align-items: baseline;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 8px;
   padding: 22px 10px 8px;
@@ -158,11 +165,31 @@ function formatSize(size: number): string {
   opacity: 1;
 }
 
+.mtai-photo-card__texts {
+  flex: 1;
+  min-width: 0;
+}
+
 .mtai-photo-card__name {
+  display: block;
   font-size: 13px;
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.mtai-photo-card__description {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.75);
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 /* верхний левый угол: внизу карточка занята всплывающей подписью фото */
