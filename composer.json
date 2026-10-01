@@ -1,0 +1,19 @@
+{
+	"name": "mtai/gallery",
+	"description": "Photo gallery for Bitrix24: an iblock with extended rights (sections are albums, elements are photos), public /gallery/ page on Vue 3 + Vite with FilePond uploads and the stock image viewer",
+	"type": "bitrix-module",
+	"keywords": ["bitrix", "bitrix24", "gallery", "photo", "iblock", "vue", "vite", "filepond"],
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "MTai88 (Tair Minsafaev)"
+		}
+	],
+	"require": {
+		"php": ">=8.1"
+	},
+	"extra": {
+		"bitrix-module-id": "mtai.gallery",
+		"install-path": "local/modules/mtai.gallery"
+	}
+}

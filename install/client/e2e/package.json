@@ -1,0 +1,11 @@
+{
+  "name": "mtai-gallery-e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "e2e": "node gallery.e2e.mjs"
+  },
+  "dependencies": {
+    "playwright-core": "^1.49.0"
+  }
+}

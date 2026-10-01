@@ -1,0 +1,12 @@
+.idea
+.vscode
+node_modules
+install/client/node_modules
+.env
+.env.local
+.env.*.local
+*.log
+npm-debug.log*
+.DS_Store
+install/client/e2e/artifacts
+install/client/e2e/node_modules
