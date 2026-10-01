@@ -8,6 +8,7 @@ use CIBlockElement;
 use CIBlockSection;
 use Mtai\Gallery\Permission;
 use Mtai\Gallery\Photo as PhotoFormatter;
+use Mtai\Gallery\Rating;
 
 /**
  * Фотографии галереи (элементы инфоблока) для публичной страницы.
@@ -97,8 +98,18 @@ class Photo extends Base
 			array_pop($rows);
 		}
 
+		$items = PhotoFormatter::formatList($rows);
+
+		// реакции фотографий (штатные рейтинги, сущность IBLOCK_ELEMENT)
+		$ratings = Rating::formatBatch('IBLOCK_ELEMENT', array_column($items, 'id'));
+		foreach ($items as &$item)
+		{
+			$item['rating'] = $ratings[$item['id']];
+		}
+		unset($item);
+
 		return [
-			'items' => PhotoFormatter::formatList($rows),
+			'items' => $items,
 			'cursor' => ($hasMore && $rows) ? (int)end($rows)['ID'] : null,
 			'permissions' => Permission::getFlags($iblockId),
 		];
@@ -224,6 +235,12 @@ class Photo extends Base
 			];
 		}
 		$photo['id'] = $elementId;
+		$photo['rating'] = [
+			'count' => 0,
+			'reactions' => [],
+			'myReaction' => null,
+			'key' => Rating::signKey('IBLOCK_ELEMENT', $elementId),
+		];
 
 		return $photo;
 	}

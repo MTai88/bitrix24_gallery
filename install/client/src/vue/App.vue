@@ -4,6 +4,7 @@ import type { Album, GalleryConfig, Permissions, Photo } from '../js/types';
 import { Api } from '../js/api';
 import { bindViewer } from '../js/viewer';
 import PhotoGrid from './PhotoGrid.vue';
+import ReactionBar from './ReactionBar.vue';
 import InfiniteSentinel from './InfiniteSentinel.vue';
 import Uploader from './Uploader.vue';
 import AlbumDialog from './AlbumDialog.vue';
@@ -75,6 +76,8 @@ function showAlbums(): void {
   photos.value = [];
   photoCursor.value = 0;
   photosError.value = '';
+  // обновить счётчики фото/реакций и обложки — они могли измениться
+  void loadAlbums();
 }
 
 function openAlbum(album: Album): void {
@@ -295,6 +298,15 @@ watch([sentinelInview, photosLoading, photoCursor], () => {
           >
             {{ album.name }}
           </div>
+          <div class="mtai-album__meta">
+            <ReactionBar
+              small
+              :api="api"
+              entity-type="IBLOCK_SECTION"
+              :entity-id="album.id"
+              :rating="album.rating"
+            />
+          </div>
           <div
             v-if="permissions.editAlbum || permissions.deleteAlbum"
             class="mtai-album__actions"
@@ -360,6 +372,13 @@ watch([sentinelInview, photosLoading, photoCursor], () => {
             :title="currentAlbum.name"
           >{{ currentAlbum.name }}</span>
           <span class="mtai-gallery__muted">{{ currentAlbum.count }} фото</span>
+          <ReactionBar
+            class="mtai-gallery__album-like"
+            :api="api"
+            entity-type="IBLOCK_SECTION"
+            :entity-id="currentAlbum.id"
+            :rating="currentAlbum.rating"
+          />
         </div>
         <div class="mtai-gallery__bar-actions">
           <button
@@ -409,6 +428,7 @@ watch([sentinelInview, photosLoading, photoCursor], () => {
       </div>
 
       <PhotoGrid
+        :api="api"
         :photos="photos"
         :can-edit="permissions.editPhoto"
         :can-delete="permissions.deletePhoto"
@@ -622,6 +642,14 @@ watch([sentinelInview, photosLoading, photoCursor], () => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.mtai-album__meta {
+  margin-top: 6px;
+}
+
+.mtai-gallery__album-like {
+  margin-left: 8px;
 }
 
 .mtai-album__actions {

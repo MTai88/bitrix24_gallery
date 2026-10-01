@@ -7,6 +7,7 @@ use CIBlockSection;
 use CIBlockElement;
 use Mtai\Gallery\Permission;
 use Mtai\Gallery\Photo;
+use Mtai\Gallery\Rating;
 
 /**
  * Альбомы галереи (разделы инфоблока) для публичной страницы.
@@ -67,6 +68,14 @@ class Album extends Base
 				'cover' => $this->findCover($iblockId, (int)$section['ID']),
 			];
 		}
+
+		// реакции альбомов (штатные рейтинги, сущность IBLOCK_SECTION)
+		$ratings = Rating::formatBatch('IBLOCK_SECTION', array_column($albums, 'id'));
+		foreach ($albums as &$album)
+		{
+			$album['rating'] = $ratings[$album['id']];
+		}
+		unset($album);
 
 		return [
 			'albums' => $albums,

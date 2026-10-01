@@ -1,7 +1,10 @@
 <script setup lang="ts">
+import type { Api } from '../js/api';
 import type { Photo } from '../js/types';
+import ReactionBar from './ReactionBar.vue';
 
 defineProps<{
+  api: Api;
   photos: Photo[];
   canEdit: boolean;
   canDelete: boolean;
@@ -57,6 +60,15 @@ function formatSize(size: number): string {
           v-if="photo.size"
           class="mtai-photo-card__size"
         >{{ formatSize(photo.size) }}</span>
+      </div>
+      <div class="mtai-photo-card__reaction">
+        <ReactionBar
+          small
+          :api="api"
+          entity-type="IBLOCK_ELEMENT"
+          :entity-id="photo.id"
+          :rating="photo.rating"
+        />
       </div>
       <div
         v-if="canEdit || canDelete"
@@ -148,6 +160,13 @@ function formatSize(size: number): string {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.mtai-photo-card__reaction {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  z-index: 5;
 }
 
 .mtai-photo-card__size {

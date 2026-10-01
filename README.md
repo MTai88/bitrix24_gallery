@@ -11,6 +11,10 @@
 - сетка фотографий с **автоподрузкой при скролле** (курсорная пагинация);
 - **загрузка через FilePond** (мультизагрузка, превью, EXIF-ориентация) —
   элемент создаётся сразу при выборе файла;
+- **реакции («лайки») живой ленты** (👍😍😄😮😢😡🤦) на альбомы и фотографии —
+  на штатных рейтингах Bitrix24 (как в решении [bitrix24_likes](https://github.com/MTai88/bitrix24_likes)):
+  голоса и счётчики в стандартных таблицах, голосование через штатный
+  `rating.vote`, список поставивших с аватарами;
 - просмотр штатным **просмотрщиком Bitrix24** (`BX.UI.Viewer`, как у полей
   «файл» универсальных списков) — клик по фото, карусель по всем фото сетки;
 - редактирование из публички: право определяются правами на инфоблок
@@ -67,14 +71,19 @@ docker run --rm -v "$PWD:/app" -w /app node:22-alpine sh -c "npm ci && npm run b
 
 Vue (install/client/src/)
   ├─ index.ts — монтирует App в #mtai-gallery-app
-  ├─ js/api.ts — клиент ajax-контроллеров
+  ├─ js/api.ts — клиент ajax-контроллеров + голосование rating.vote
   ├─ js/viewer.ts — BX.UI.Viewer.bind() на корень
-  └─ vue/ — App, PhotoGrid, Uploader (FilePond), InfiniteSentinel, диалоги
+  └─ vue/ — App, PhotoGrid, ReactionBar (реакции), Uploader (FilePond),
+     InfiniteSentinel, диалоги
 
 AJAX: /bitrix/services/main/ajax.php?action=mtai:gallery.*
   ├─ album.list / album.save / album.delete
   └─ photo.list / photo.upload (FilePond process) / photo.revert
      / photo.update / photo.delete
+
+Реакции: /bitrix/components/bitrix/rating.vote/vote.ajax.php (штатный) —
+  данные (счётчики, моя реакция, подписанный ключ) — в rating полей
+  album.list / photo.list; сущности IBLOCK_SECTION / IBLOCK_ELEMENT
 ```
 
 ## Требования

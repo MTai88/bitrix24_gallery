@@ -1,3 +1,12 @@
+/** Реакции («лайки») — штатные рейтинги Bitrix24. */
+export interface Rating {
+  count: number;
+  reactions: Record<string, number>;
+  myReaction: string | null;
+  /** подписанный ключ голосования (TimeSigner, выдаётся данными списка) */
+  key: string;
+}
+
 /** Фотография (элемент инфоблока галереи). */
 export interface Photo {
   id: number;
@@ -7,6 +16,7 @@ export interface Photo {
   fullUrl: string;
   size: number;
   ext: string;
+  rating: Rating;
 }
 
 /** Альбом (раздел инфоблока галереи). */
@@ -16,6 +26,7 @@ export interface Album {
   depth: number;
   count: number;
   cover: Photo | null;
+  rating: Rating;
 }
 
 /** Гранулярные права пользователя на инфоблок (CIBlockRights). */
@@ -34,6 +45,8 @@ export interface GalleryConfig {
   sessid: string;
   iblockId: number;
   ajaxUrl: string;
+  voteUrl: string;
+  profilePath: string;
   actions: {
     albumList: string;
     albumSave: string;

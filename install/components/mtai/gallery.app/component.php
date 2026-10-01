@@ -46,6 +46,10 @@ $arResult['CONFIG'] = [
 	'sessid' => bitrix_sessid(),
 	'iblockId' => $iblockId,
 	'ajaxUrl' => '/bitrix/services/main/ajax.php',
+	// реакции (лайки) — штатный эндпоинт rating.vote, голоса в стандартных
+	// таблицах рейтингов; ключи данные списков приносят с собой
+	'voteUrl' => '/bitrix/components/bitrix/rating.vote/vote.ajax.php',
+	'profilePath' => '/company/personal/user/#user_id#/',
 	'actions' => [
 		'albumList' => 'mtai:gallery.album.list',
 		'albumSave' => 'mtai:gallery.album.save',
