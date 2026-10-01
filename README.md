@@ -56,18 +56,6 @@ npm run build        # dist/ + manifest.json
 docker run --rm -v "$PWD:/app" -w /app node:22-alpine sh -c "npm ci && npm run build"
 ```
 
-## E2E-проверка
-
-Headless-chromium тест (альбомы, автоподгрузка, просмотрщик, FilePond
-загрузка/удаление, диалоги) — `install/client/e2e/gallery.e2e.mjs`:
-
-```bash
-cd install/client/e2e
-docker run --rm --add-host bitrix.local:host-gateway \
-  -e NODE_TLS_REJECT_UNAUTHORIZED=0 -v "$PWD/..:/app" -w /app/e2e \
-  node:22-alpine sh -c "apk add --no-cache chromium && npm i && node gallery.e2e.mjs"
-```
-
 ## Архитектура
 
 ```
@@ -88,23 +76,6 @@ AJAX: /bitrix/services/main/ajax.php?action=mtai:gallery.*
   └─ photo.list / photo.upload (FilePond process) / photo.revert
      / photo.update / photo.delete
 ```
-
-### Грабли, учтённые в реализации
-
-- **Ключ конфига контроллеров — `prefilters`**, не `filters`: старый вариант
-  ядро молча игнорирует и применяет дефолтные фильтры (Csrf обязателен даже
-  для GET).
-- **`CIBlock::GetPermission()` не работает в расширенном режиме** (читает
-  только `b_iblock_group`) — права через `CIBlockRights::UserHasRightTo()`.
-- **Одинарные кавычки data-атрибутов переписываются шаблонизатором/компрессором
-  Bitrix в двойные** — конфиг передаётся в двойных кавычках + `htmlspecialcharsbx`.
-- **ESM-бандл подключается только `<script type=module>`** (не `addJs`),
-  vendor-чанк — через `<link rel=modulepreload>`.
-- CSS из node_modules не должен попадать в vendor-чанк (теряется при
-  подключении) — исключён в `manualChunks`.
-- IntersectionObserver срабатывает только при ИЗМЕНЕНИИ пересечения:
-  автоподгрузка реагирует и на завершение загрузки, пока сентинел виден.
-- `ResizeImageGet` требует из `b_file` поля `WIDTH/HEIGHT/MODULE_ID`.
 
 ## Требования
 
