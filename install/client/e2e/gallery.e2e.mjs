@@ -175,6 +175,21 @@ try {
   report('автоподгрузка при скролле', true, `карточек: ${await cards.count()}`);
   await page.screenshot({ path: `${ARTIFACTS}02-grid.png`, fullPage: false });
 
+  // 3a. Перестановка фотографий перетаскиванием (HTML5 DnD): карточка 0 →
+  // на позицию 2; порядок в сетке меняется оптимистично и сохраняется
+  const firstSrc = await cards.nth(0).locator('img[data-viewer]').getAttribute('src');
+  await cards.nth(0).dragTo(cards.nth(2));
+  await page.waitForFunction(
+    (before) => {
+      const grid = document.querySelectorAll('.mtai-photo-card img[data-viewer]');
+      return grid.length > 2 && grid[2].getAttribute('src') === before;
+    },
+    firstSrc,
+    { timeout: 15000 },
+  );
+  report('перестановка фото перетаскиванием', true);
+  await page.screenshot({ path: `${ARTIFACTS}05-reorder.png`, fullPage: false });
+
   // 5. FilePond на странице (альбомный; модальный замены живёт в body вне .mtai-gallery)
   const pond = page.locator('.mtai-gallery .filepond--root');
   report('FilePond-загрузчик', (await pond.count()) > 0);
@@ -230,6 +245,17 @@ try {
   const seedAlbumCard = page.locator('.mtai-album', { hasText: ALBUM_NAME }).first();
   await seedAlbumCard.waitFor({ state: 'visible', timeout: 8000 });
   report('счётчик реакции альбома на карточке', (await seedAlbumCard.locator('.mtai-reaction__count').innerText()).trim() === '1');
+
+  // 8a. Перестановка альбомов перетаскиванием: сид-альбом на позицию 0
+  const secondAlbum = page.locator('.mtai-album').nth(1);
+  const secondName = await secondAlbum.locator('.mtai-album__name').innerText();
+  await secondAlbum.dragTo(page.locator('.mtai-album').first());
+  await page.waitForFunction(
+    (name) => document.querySelector('.mtai-album .mtai-album__name')?.textContent === name,
+    secondName,
+    { timeout: 15000 },
+  );
+  report('перестановка альбомов перетаскиванием', true);
   await seedAlbumCard.click();
 
   // 9. Переименование фото и подпись через диалог

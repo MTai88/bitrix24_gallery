@@ -2,6 +2,7 @@
 
 namespace Mtai\Gallery\Controller;
 
+use Bitrix\Main\Application;
 use Bitrix\Main\Engine\ActionFilter;
 use Bitrix\Main\Error;
 use CIBlockElement;
@@ -46,6 +47,7 @@ class Photo extends Base
 			'list' => ['prefilters' => [new ActionFilter\HttpMethod([ActionFilter\HttpMethod::METHOD_GET])]],
 			'upload' => ['prefilters' => $this->postFilters()],
 			'replace' => ['prefilters' => $this->postFilters()],
+			'reorder' => ['prefilters' => $this->postFilters()],
 			'revert' => ['prefilters' => $this->postFilters()],
 			'update' => ['prefilters' => $this->postFilters()],
 			'delete' => ['prefilters' => $this->postFilters()],
@@ -53,8 +55,9 @@ class Photo extends Base
 	}
 
 	/**
-	 * Страница сетки альбома, курсорная пагинация (id < cursor) — новые
-	 * загрузки не сдвигают уже выданные страницы.
+	 * Страница сетки альбома, offset-пагинация. Порядок — ручная сортировка
+	 * (SORT ASC, внутри равных — новые вперёд); она изменяема, поэтому
+	 * keyset-пагинация по id здесь неприменима.
 	 *
 	 * @return array{items: array[], cursor: int|null, permissions: array}
 	 */
@@ -67,37 +70,29 @@ class Photo extends Base
 		}
 
 		$limit = max(1, min(100, $limit));
+		$cursor = max(0, $cursor);
 
-		$filter = [
-			'IBLOCK_ID' => $iblockId,
-			'SECTION_ID' => $albumId,
-			'INCLUDE_SUBSECTIONS' => 'Y',
-			'ACTIVE' => 'Y',
-			'CHECK_PERMISSIONS' => 'Y',
-		];
-		if ($cursor > 0)
-		{
-			$filter['<ID'] = $cursor;
-		}
-
-		$rows = [];
+		// NavQuery с размером страницы = limit: сдвиг (iNumPage-1)*limit
+		// совпадает с offset-курсором клиента, без потерь между страницами
 		$rs = CIBlockElement::GetList(
-			['ID' => 'DESC'],
-			$filter,
+			['SORT' => 'ASC', 'ID' => 'DESC'],
+			[
+				'IBLOCK_ID' => $iblockId,
+				'SECTION_ID' => $albumId,
+				'INCLUDE_SUBSECTIONS' => 'Y',
+				'ACTIVE' => 'Y',
+				'CHECK_PERMISSIONS' => 'Y',
+			],
 			false,
-			['nTopCount' => $limit + 1],
+			['iNumPage' => intdiv($cursor, $limit) + 1, 'nPageSize' => $limit],
 			['ID', 'NAME', 'PREVIEW_TEXT', 'DETAIL_PICTURE']
 		);
+		$rows = [];
 		while ($row = $rs->Fetch())
 		{
 			$rows[] = $row;
 		}
-
-		$hasMore = count($rows) > $limit;
-		if ($hasMore)
-		{
-			array_pop($rows);
-		}
+		$total = (int)$rs->NavRecordCount;
 
 		$items = PhotoFormatter::formatList($rows);
 
@@ -109,9 +104,11 @@ class Photo extends Base
 		}
 		unset($item);
 
+		$hasMore = $total > $cursor + count($items);
+
 		return [
 			'items' => $items,
-			'cursor' => ($hasMore && $rows) ? (int)end($rows)['ID'] : null,
+			'cursor' => $hasMore ? $cursor + count($items) : null,
 			'permissions' => Permission::getFlags($iblockId),
 		];
 	}
@@ -172,6 +169,8 @@ class Photo extends Base
 			'DETAIL_PICTURE' => $file,
 			'PREVIEW_TEXT' => '',
 			'PREVIEW_TEXT_TYPE' => 'text',
+			// новые фотографии — в начало (перед минимальным SORT альбома)
+			'SORT' => $this->nextPrependSort($iblockId, $albumId),
 		]);
 		if ($elementId <= 0)
 		{
@@ -289,6 +288,121 @@ class Photo extends Base
 		}
 
 		return $photo;
+	}
+
+	/**
+	 * Ручная сортировка фотографий альбома: клиент присылает порядок id
+	 * (только видимой части), SORT расставляется с шагом 100. Право —
+	 * element_edit (SORT входит в редактирование элемента).
+	 *
+	 * @return array{albumId: int, sorted: int}
+	 */
+	public function reorderAction(int $albumId, string $ids = ''): array
+	{
+		$iblockId = $this->requireIblockId();
+		if ($iblockId <= 0)
+		{
+			return [];
+		}
+
+		if (!Permission::has($iblockId, 'element_edit'))
+		{
+			$this->addError(new Error('Нет прав на редактирование фотографий'));
+
+			return [];
+		}
+
+		$photoIds = array_map('intval', array_filter(explode(',', $ids)));
+		if (!$photoIds)
+		{
+			$this->addError(new Error('Не передан порядок фотографий'));
+
+			return [];
+		}
+
+		// все переданные id должны быть фотографиями этого альбома
+		$own = [];
+		$rs = CIBlockElement::GetList(
+			[],
+			['IBLOCK_ID' => $iblockId, '=ID' => $photoIds, 'CHECK_PERMISSIONS' => 'N'],
+			false,
+			false,
+			['ID', 'IBLOCK_SECTION_ID']
+		);
+		while ($row = $rs->Fetch())
+		{
+			$own[(int)$row['ID']] = (int)$row['IBLOCK_SECTION_ID'];
+		}
+		foreach ($photoIds as $photoId)
+		{
+			if (!isset($own[$photoId]) || !in_array($albumId, $this->albumChain($iblockId, $own[$photoId]), true))
+			{
+				$this->addError(new Error('Фотография не найдена в этом альбоме'));
+
+				return [];
+			}
+		}
+
+		// SORT меняется прямым SQL: CIBlockElement::Update на каждое фото
+		// тяжёлый (файловый IO стенда) и надолго блокирует PHP-сессию —
+		// все следующие запросы пользователя встают в очередь
+		$connection = Application::getConnection();
+		foreach (array_values($photoIds) as $index => $photoId)
+		{
+			$connection->queryExecute(
+				'UPDATE b_iblock_element'
+				. ' SET SORT = ' . (($index + 1) * 100)
+				. ' WHERE ID = ' . $photoId . ' AND IBLOCK_ID = ' . $iblockId
+			);
+		}
+		\CIBlock::clearIblockTagCache($iblockId);
+
+		return ['albumId' => $albumId, 'sorted' => count($photoIds)];
+	}
+
+	/**
+	 * Цепочка разделов от корня до $sectionId (для INCLUDE_SUBSECTIONS-логики).
+	 *
+	 * @return int[]
+	 */
+	private function albumChain(int $iblockId, ?int $sectionId): array
+	{
+		$chain = [];
+		while ($sectionId > 0)
+		{
+			$chain[] = $sectionId;
+			$section = CIBlockSection::GetList(
+				[],
+				['ID' => $sectionId, 'IBLOCK_ID' => $iblockId, 'CHECK_PERMISSIONS' => 'N'],
+				false,
+				['ID', 'IBLOCK_SECTION_ID']
+			)->Fetch();
+			$sectionId = $section ? (int)$section['IBLOCK_SECTION_ID'] : 0;
+		}
+
+		return $chain;
+	}
+
+	/**
+	 * SORT для нового элемента альбома: перед минимальным существующим
+	 * (новые фотографии появляются первыми), шаг 100.
+	 */
+	private function nextPrependSort(int $iblockId, int $albumId): int
+	{
+		$min = CIBlockElement::GetList(
+			['SORT' => 'ASC'],
+			[
+				'IBLOCK_ID' => $iblockId,
+				'SECTION_ID' => $albumId,
+				'INCLUDE_SUBSECTIONS' => 'Y',
+				'CHECK_PERMISSIONS' => 'N',
+			],
+			false,
+			['nTopCount' => 1],
+			['SORT']
+		)->Fetch();
+
+		return $min ? (int)$min['SORT'] - 100 : 100;
 	}
 
 	/**

@@ -8,7 +8,10 @@
 [MTai88/vite](https://github.com/MTai88/vite)):
 
 - сетка альбомов (обложка = свежая фотография, счётчик);
-- сетка фотографий с **автоподрузкой при скролле** (курсорная пагинация);
+- сетка фотографий с **автоподрузкой при скролле** (пагинация по offset);
+- **ручная сортировка перетаскиванием** (drag & drop): порядок фотографий
+  внутри альбома и порядок альбомов сохраняется в SORT инфоблока; новые
+  загрузки и альбомы появляются первыми;
 - **загрузка через FilePond** (мультизагрузка, превью, EXIF-ориентация) —
   элемент создаётся сразу при выборе файла; в попапе редактирования фото —
   **замена изображения** через FilePond (применяется сразу, права `element_edit`);
@@ -78,9 +81,9 @@ Vue (install/client/src/)
      InfiniteSentinel, диалоги
 
 AJAX: /bitrix/services/main/ajax.php?action=mtai:gallery.*
-  ├─ album.list / album.save / album.delete
-  └─ photo.list / photo.upload (FilePond process) / photo.revert
-     / photo.update / photo.delete
+  ├─ album.list / album.save / album.reorder / album.delete
+  └─ photo.list / photo.upload (FilePond process) / photo.replace
+     / photo.reorder / photo.revert / photo.update / photo.delete
 
 Реакции: /bitrix/components/bitrix/rating.vote/vote.ajax.php (штатный) —
   данные (счётчики, моя реакция, подписанный ключ) — в rating полей

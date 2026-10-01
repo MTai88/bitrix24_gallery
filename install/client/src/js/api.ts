@@ -46,12 +46,26 @@ export class Api {
     await this.post('albumDelete', { id });
   }
 
+  /**
+   * Страница сетки альбома. cursor здесь — offset пагинации (0 = начало,
+   * null пришёл — страницы закончились).
+   */
   async photoList(albumId: number, cursor: number | null, limit: number): Promise<import('./types').PhotoPage> {
     const params: Record<string, string | number> = { albumId, limit };
     if (cursor !== null) {
       params.cursor = cursor;
     }
     return this.call('photoList', params);
+  }
+
+  /** Ручная сортировка фотографий: порядок id видимой части сетки. */
+  async photoReorder(albumId: number, ids: number[]): Promise<void> {
+    await this.post('photoReorder', { albumId, ids: ids.join(',') });
+  }
+
+  /** Ручная сортировка альбомов: порядок id. */
+  async albumReorder(ids: number[]): Promise<void> {
+    await this.post('albumReorder', { ids: ids.join(',') });
   }
 
   async photoUpdate(id: number, name: string, description: string): Promise<void> {

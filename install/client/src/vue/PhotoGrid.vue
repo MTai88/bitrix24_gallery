@@ -1,9 +1,10 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import type { Api } from '../js/api';
 import type { Photo } from '../js/types';
 import ReactionBar from './ReactionBar.vue';
 
-defineProps<{
+const props = defineProps<{
   api: Api;
   photos: Photo[];
   canEdit: boolean;
@@ -13,7 +14,53 @@ defineProps<{
 const emit = defineEmits<{
   edit: [photo: Photo];
   delete: [photo: Photo];
+  /** порядок изменён перетаскиванием — присылается новый массив */
+  reorder: [photos: Photo[]];
 }>();
+
+/**
+ * Перетаскивание карточек (HTML5 DnD). Родитель применяет порядок
+ * оптимистично и отправляет его на сервер.
+ */
+const dragIndex = ref<number | null>(null);
+const overIndex = ref<number | null>(null);
+
+function onDragStart(index: number, event: DragEvent): void {
+  dragIndex.value = index;
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', String(index));
+  }
+}
+
+function onDragOver(index: number, event: DragEvent): void {
+  if (dragIndex.value === null) {
+    return;
+  }
+  event.preventDefault();
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move';
+  }
+  overIndex.value = index;
+}
+
+function onDrop(index: number, event: DragEvent): void {
+  event.preventDefault();
+  const from = dragIndex.value;
+  resetDrag();
+  if (from === null || from === index) {
+    return;
+  }
+  const reordered = [...props.photos];
+  const [moved] = reordered.splice(from, 1);
+  reordered.splice(index, 0, moved);
+  emit('reorder', reordered);
+}
+
+function resetDrag(): void {
+  dragIndex.value = null;
+  overIndex.value = null;
+}
 
 function formatSize(size: number): string {
   if (size <= 0) {
@@ -32,13 +79,25 @@ function formatSize(size: number): string {
     class="mtai-photo-grid"
   >
     <div
-      v-for="photo in photos"
+      v-for="(photo, index) in photos"
       :key="photo.id"
       class="mtai-photo-card"
+      :class="{
+        'mtai-photo-card--draggable': canEdit,
+        'mtai-photo-card--dragging': dragIndex === index,
+        'mtai-photo-card--over': overIndex === index && dragIndex !== null && dragIndex !== index,
+      }"
+      :draggable="canEdit"
+      @dragstart="onDragStart(index, $event)"
+      @dragover="onDragOver(index, $event)"
+      @drop="onDrop(index, $event)"
+      @dragend="resetDrag"
+      @dragleave="overIndex === index && (overIndex = null)"
     >
       <!--
         Разметка как у поля «файл» списков: клик открывает штатный
         просмотрщик Bitrix24 (BX.UI.Viewer), карусель — все фото сетки.
+        draggable=false: иначе браузер тащит саму картинку, а не карточку.
       -->
       <img
         class="mtai-photo-card__image"
@@ -49,6 +108,7 @@ function formatSize(size: number): string {
         :data-title="photo.name"
         :data-download-url="photo.fullUrl"
         :alt="photo.name"
+        :draggable="false"
         loading="lazy"
       >
       <div class="mtai-photo-card__overlay">
@@ -132,6 +192,19 @@ function formatSize(size: number): string {
   /* без overflow: hidden — он обрезал бы всплывающую панель реакций;
      скругление углов у картинки и градиентной подписи */
   background: #eef1f5;
+}
+
+.mtai-photo-card--draggable {
+  cursor: grab;
+}
+
+.mtai-photo-card--dragging {
+  opacity: 0.4;
+}
+
+.mtai-photo-card--over {
+  outline: 2px dashed #2fc7f7;
+  outline-offset: -2px;
 }
 
 .mtai-photo-card__image {

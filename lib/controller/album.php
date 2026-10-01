@@ -2,7 +2,9 @@
 
 namespace Mtai\Gallery\Controller;
 
+use Bitrix\Main\Application;
 use Bitrix\Main\Engine\ActionFilter;
+use Bitrix\Main\Error;
 use CIBlockSection;
 use CIBlockElement;
 use Mtai\Gallery\Permission;
@@ -31,6 +33,7 @@ class Album extends Base
 		return [
 			'list' => ['prefilters' => [new ActionFilter\HttpMethod([ActionFilter\HttpMethod::METHOD_GET])]],
 			'save' => ['prefilters' => $this->postFilters()],
+			'reorder' => ['prefilters' => $this->postFilters()],
 			'delete' => ['prefilters' => $this->postFilters()],
 		];
 	}
@@ -47,8 +50,9 @@ class Album extends Base
 		}
 
 		$albums = [];
+		// порядок — ручная сортировка (SORT ASC, внутри равных — новые вперёд)
 		$rs = CIBlockSection::GetList(
-			['LEFT_MARGIN' => 'ASC'],
+			['SORT' => 'ASC', 'ID' => 'DESC'],
 			[
 				'IBLOCK_ID' => $iblockId,
 				'ACTIVE' => 'Y',
@@ -142,6 +146,8 @@ class Album extends Base
 			'IBLOCK_ID' => $iblockId,
 			'NAME' => $name,
 			'ACTIVE' => 'Y',
+			// новые альбомы — в начало (перед минимальным SORT)
+			'SORT' => $this->nextPrependSort($iblockId),
 		]);
 		if ($newId <= 0)
 		{
@@ -200,6 +206,77 @@ class Album extends Base
 			false,
 			['ID']
 		)->Fetch();
+	}
+
+	/**
+	 * Ручная сортировка альбомов: клиент присылает порядок id разделов,
+	 * SORT расставляется с шагом 100. Право — section_edit.
+	 *
+	 * @return array{sorted: int}
+	 */
+	public function reorderAction(string $ids = ''): array
+	{
+		$iblockId = $this->requireIblockId();
+		if ($iblockId <= 0)
+		{
+			return [];
+		}
+
+		if (!Permission::has($iblockId, 'section_edit'))
+		{
+			$this->addError(new Error(self::SECTION_RIGHTS_ERROR));
+
+			return [];
+		}
+
+		$sectionIds = array_map('intval', array_filter(explode(',', $ids)));
+		if (!$sectionIds)
+		{
+			$this->addError(new Error('Не передан порядок альбомов'));
+
+			return [];
+		}
+
+		// все переданные id должны быть альбомами этого инфоблока
+		foreach ($sectionIds as $sectionId)
+		{
+			if (!$this->ownSection($iblockId, $sectionId))
+			{
+				$this->addError(new Error('Альбом не найден'));
+
+				return [];
+			}
+		}
+
+		// прямой SQL вместо CIBlockSection::Update — тот тяжёлый и надолго
+		// блокирует PHP-сессию (см. комментарий в photo.reorder)
+		$connection = Application::getConnection();
+		foreach (array_values($sectionIds) as $index => $sectionId)
+		{
+			$connection->queryExecute(
+				'UPDATE b_iblock_section'
+				. ' SET SORT = ' . (($index + 1) * 100)
+				. ' WHERE ID = ' . $sectionId . ' AND IBLOCK_ID = ' . $iblockId
+			);
+		}
+		\CIBlock::clearIblockTagCache($iblockId);
+
+		return ['sorted' => count($sectionIds)];
+	}
+
+	/**
+	 * SORT нового альбома: перед минимальным существующим, шаг 100.
+	 */
+	private function nextPrependSort(int $iblockId): int
+	{
+		$min = CIBlockSection::GetList(
+			['SORT' => 'ASC'],
+			['IBLOCK_ID' => $iblockId, 'CHECK_PERMISSIONS' => 'N'],
+			false,
+			['SORT']
+		)->Fetch();
+
+		return $min ? (int)$min['SORT'] - 100 : 100;
 	}
 
 	/**

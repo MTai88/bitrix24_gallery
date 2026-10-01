@@ -50,10 +50,12 @@ export interface GalleryConfig {
   actions: {
     albumList: string;
     albumSave: string;
+    albumReorder: string;
     albumDelete: string;
     photoList: string;
     photoUpload: string;
     photoReplace: string;
+    photoReorder: string;
     photoRevert: string;
     photoUpdate: string;
     photoDelete: string;

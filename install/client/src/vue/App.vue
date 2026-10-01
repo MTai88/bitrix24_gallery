@@ -38,6 +38,73 @@ const totalPhotos = ref(0);
 /** виден ли сентинел автоподгрузки (сообщает InfiniteSentinel) */
 const sentinelInview = ref(false);
 
+/** перетаскивание альбомов (HTML5 DnD), индексы в списке albums */
+const albumDragIndex = ref<number | null>(null);
+const albumOverIndex = ref<number | null>(null);
+
+function onAlbumDragStart(index: number, event: DragEvent): void {
+  albumDragIndex.value = index;
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', String(index));
+  }
+}
+
+function onAlbumDragOver(index: number, event: DragEvent): void {
+  if (albumDragIndex.value === null) {
+    return;
+  }
+  event.preventDefault();
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move';
+  }
+  albumOverIndex.value = index;
+}
+
+function onAlbumDrop(index: number, event: DragEvent): void {
+  event.preventDefault();
+  const from = albumDragIndex.value;
+  resetAlbumDrag();
+  if (from === null || from === index) {
+    return;
+  }
+  const reordered = [...albums.value];
+  const [moved] = reordered.splice(from, 1);
+  reordered.splice(index, 0, moved);
+  albums.value = reordered;
+  void saveAlbumOrder(reordered);
+}
+
+function resetAlbumDrag(): void {
+  albumDragIndex.value = null;
+  albumOverIndex.value = null;
+}
+
+async function saveAlbumOrder(reordered: Album[]): Promise<void> {
+  try {
+    await api.albumReorder(reordered.map((album) => album.id));
+  } catch (e) {
+    error.value = formatError(e, 'Не удалось сохранить порядок альбомов');
+    void loadAlbums();
+  }
+}
+
+/** порядок фотографий изменён перетаскиванием в сетке */
+async function savePhotoOrder(reordered: Photo[]): Promise<void> {
+  photos.value = reordered;
+  if (!currentAlbum.value) {
+    return;
+  }
+  try {
+    await api.photoReorder(currentAlbum.value.id, reordered.map((photo) => photo.id));
+  } catch (e) {
+    photosError.value = e instanceof Error ? e.message : 'Не удалось сохранить порядок фотографий';
+    photoCursor.value = 0;
+    photos.value = [];
+    await loadMorePhotos();
+  }
+}
+
 async function loadAlbums(): Promise<void> {
   albumsLoading.value = true;
   error.value = '';
@@ -287,16 +354,28 @@ watch([sentinelInview, photosLoading, photoCursor], () => {
         class="mtai-gallery__albums"
       >
         <div
-          v-for="album in albums"
+          v-for="(album, index) in albums"
           :key="album.id"
           class="mtai-album"
+          :class="{
+            'mtai-album--draggable': permissions.editAlbum,
+            'mtai-album--dragging': albumDragIndex === index,
+            'mtai-album--over': albumOverIndex === index && albumDragIndex !== null && albumDragIndex !== index,
+          }"
+          :draggable="permissions.editAlbum"
           @click="openAlbum(album)"
+          @dragstart="onAlbumDragStart(index, $event)"
+          @dragover="onAlbumDragOver(index, $event)"
+          @drop="onAlbumDrop(index, $event)"
+          @dragend="resetAlbumDrag"
+          @dragleave="albumOverIndex === index && (albumOverIndex = null)"
         >
           <div class="mtai-album__cover">
             <img
               v-if="album.cover"
               :src="album.cover.thumbUrl"
               :alt="album.name"
+              :draggable="false"
               loading="lazy"
             >
             <div
@@ -450,6 +529,7 @@ watch([sentinelInview, photosLoading, photoCursor], () => {
         :can-delete="permissions.deletePhoto"
         @edit="askEditPhoto"
         @delete="askDeletePhoto"
+        @reorder="savePhotoOrder"
       />
 
       <InfiniteSentinel
@@ -613,8 +693,20 @@ watch([sentinelInview, photosLoading, photoCursor], () => {
 
 .mtai-album {
   position: relative;
-  cursor: pointer;
   border-radius: 10px;
+}
+
+.mtai-album--draggable {
+  cursor: grab;
+}
+
+.mtai-album--dragging {
+  opacity: 0.4;
+}
+
+.mtai-album--over {
+  outline: 2px dashed var(--mtai-accent);
+  outline-offset: 4px;
 }
 
 .mtai-album__cover {
