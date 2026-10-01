@@ -1,11 +1,14 @@
 <script setup lang="ts">
 /**
- * FilePond-загрузчик фотографий.
+ * FilePond-загрузчик фотографий. Два режима:
  *
- * Файл уходит на сервер сразу при выборе (server.process), элемент
- * инфоблока создаётся в том же запросе (mtai:gallery.photo.upload) и
- * возвращается готовая карточка — emit('added'). Убрали файл из пруда —
- * mtai:gallery.photo.revert удаляет только что созданный элемент.
+ *  - добавление в альбом (processAction = photo.upload, processParams =
+ *    { albumId }): элемент создаётся сразу при выборе файла, emit('added')
+ *    приносит готовую карточку; убрали файл из пруда — photo.revert удаляет
+ *    только что созданный элемент (emit('removed')).
+ *  - замена изображения в попапе редактирования (processAction =
+ *    photo.replace, processParams = { id }): одиночный пруд, замена
+ *    применяется сразу, revert ничего не откатывает.
  *
  * Грабли FilePond 4.32.x, учтено здесь (как в mtai.bpservices):
  *  - server.process строго функцией: в конфиг-объекте onload приходит
@@ -26,21 +29,36 @@ import type { Api } from '../js/api';
 
 const FilePond = vueFilePond(FilePondPluginImageExifOrientation, FilePondPluginImagePreview);
 
-const props = defineProps<{
-  api: Api;
-  albumId: number;
-}>();
+const props = withDefaults(
+  defineProps<{
+    api: Api;
+    /** действие ajax для server.process (photo.upload | photo.replace) */
+    processAction: string;
+    /** параметры процесса: { albumId } или { id } */
+    processParams: Record<string, number | string>;
+    multiple?: boolean;
+    /** revert удаляет созданный элемент (режим альбома) */
+    revertDeletes?: boolean;
+    idleLabel?: string;
+  }>(),
+  {
+    multiple: true,
+    revertDeletes: true,
+    idleLabel: 'Перетащите фотографии или <span class="filepond--label-action">выберите</span>',
+  },
+);
 
 const emit = defineEmits<{
   added: [photo: Photo];
   removed: [id: number];
 }>();
 
-const pond = ref<any>(null);
 const lastError = ref('');
 
+// labelIdle — HTML-строка, может отличаться между режимами
+const idleLabel = computed(() => props.idleLabel);
+
 const labels = {
-  labelIdle: 'Перетащите фотографии или <span class="filepond--label-action">выберите</span>',
   labelInvalidField: 'Поле содержит файлы неподходящего типа',
   labelFileWaitingForSize: 'Определяем размер',
   labelFileSizeNotAvailable: 'Размер недоступен',
@@ -68,10 +86,12 @@ const server = computed(() => ({
     // fieldName у программного пруда пуст — часть должна называться 'file'
     formData.append('file', file, file.name || 'file');
     formData.append('sessid', props.api.sessid);
-    formData.append('albumId', String(props.albumId));
+    for (const [key, value] of Object.entries(props.processParams)) {
+      formData.append(key, String(value));
+    }
 
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', props.api.actionUrl('mtai:gallery.photo.upload'));
+    xhr.open('POST', props.api.actionUrl(props.processAction));
     xhr.upload.addEventListener('progress', (e) => {
       if (e.lengthComputable) {
         progress(e.loaded, e.total);
@@ -110,6 +130,11 @@ const server = computed(() => ({
     };
   },
   revert: (uniqueFileId: string, load: () => void, error: (message: string) => void) => {
+    // в режиме замены откатывать нечего — замена уже применена на сервере
+    if (!props.revertDeletes) {
+      load();
+      return;
+    }
     const body = new URLSearchParams({ id: uniqueFileId, sessid: props.api.sessid });
     fetch(props.api.actionUrl('mtai:gallery.photo.revert'), {
       method: 'POST',
@@ -131,12 +156,11 @@ const server = computed(() => ({
 <template>
   <div class="mtai-uploader">
     <file-pond
-      ref="pond"
       name="file"
-      :allow-multiple="true"
+      :allow-multiple="multiple"
       :max-parallel-uploads="3"
       :server="server"
-      :label-idle="labels.labelIdle"
+      :label-idle="idleLabel"
       :label-invalid-field="labels.labelInvalidField"
       :label-file-waiting-for-size="labels.labelFileWaitingForSize"
       :label-file-size-not-available="labels.labelFileSizeNotAvailable"

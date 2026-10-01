@@ -56,6 +56,7 @@ $arResult['CONFIG'] = [
 		'albumDelete' => 'mtai:gallery.album.delete',
 		'photoList' => 'mtai:gallery.photo.list',
 		'photoUpload' => 'mtai:gallery.photo.upload',
+		'photoReplace' => 'mtai:gallery.photo.replace',
 		'photoRevert' => 'mtai:gallery.photo.revert',
 		'photoUpdate' => 'mtai:gallery.photo.update',
 		'photoDelete' => 'mtai:gallery.photo.delete',

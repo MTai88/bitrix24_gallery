@@ -53,6 +53,7 @@ export interface GalleryConfig {
     albumDelete: string;
     photoList: string;
     photoUpload: string;
+    photoReplace: string;
     photoRevert: string;
     photoUpdate: string;
     photoDelete: string;

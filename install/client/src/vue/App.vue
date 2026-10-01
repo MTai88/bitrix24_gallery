@@ -153,6 +153,21 @@ async function savePhoto(name: string, description: string): Promise<void> {
   }
 }
 
+/** изображение заменено из попапа редактирования — обновить карточку в сетке */
+function onPhotoReplaced(replaced: Photo): void {
+  const photo = photos.value.find((item) => item.id === replaced.id);
+  if (photo) {
+    photo.thumbUrl = replaced.thumbUrl;
+    photo.fullUrl = replaced.fullUrl;
+    photo.size = replaced.size;
+    photo.ext = replaced.ext;
+  }
+  if (photoDialog.photo?.id === replaced.id) {
+    photoDialog.photo = { ...photoDialog.photo, ...replaced, name: photoDialog.photo.name, description: photoDialog.photo.description };
+  }
+  // обложка альбома могла быть этой фотографией — обновим список альбомов лениво при возврате
+}
+
 function askCreateAlbum(): void {
   albumDialog.id = 0;
   albumDialog.name = '';
@@ -403,7 +418,8 @@ watch([sentinelInview, photosLoading, photoCursor], () => {
       <Uploader
         v-if="permissions.upload"
         :api="api"
-        :album-id="currentAlbum.id"
+        :process-action="props.config.actions.photoUpload"
+        :process-params="{ albumId: currentAlbum.id }"
         @added="onPhotoUploaded"
         @removed="onPhotoRemoved"
       />
@@ -456,8 +472,12 @@ watch([sentinelInview, photosLoading, photoCursor], () => {
     />
     <PhotoDialog
       v-model:open="photoDialog.open"
+      :api="api"
+      :config="props.config"
       :photo="photoDialog.photo"
+      :can-replace="permissions.editPhoto"
       :save="savePhoto"
+      @replaced="onPhotoReplaced"
     />
     <ConfirmDialog
       v-model:open="confirmState.open"

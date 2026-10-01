@@ -175,8 +175,8 @@ try {
   report('автоподгрузка при скролле', true, `карточек: ${await cards.count()}`);
   await page.screenshot({ path: `${ARTIFACTS}02-grid.png`, fullPage: false });
 
-  // 5. FilePond на странице
-  const pond = page.locator('.filepond--root');
+  // 5. FilePond на странице (альбомный; модальный замены живёт в body вне .mtai-gallery)
+  const pond = page.locator('.mtai-gallery .filepond--root');
   report('FilePond-загрузчик', (await pond.count()) > 0);
 
   // 6. Просмотрщик Bitrix24 по клику на фото
@@ -246,10 +246,41 @@ try {
   );
   report('переименование фото', true);
 
-  // 10. Загрузка файла через FilePond
+  // 10. Замена изображения в попапе редактирования (FilePond в модалке).
+  // Буфер обязан отличаться от сид-фото байт-в-байт: CFile дедуплицирует
+  // идентичные файлы, и src миниатюры тогда не меняется
+  const replaceCard = cards.first();
+  await replaceCard.hover();
+  await replaceCard.locator('button[title="Изменить название и подпись"]').click();
+  await page.locator('.mtai-modal .filepond--root').waitFor({ state: 'visible', timeout: 5000 });
+  const gridSrcBefore = await replaceCard.locator('img[data-viewer]').getAttribute('src');
+  // полноценное изображение (800x600): на 1x1-картинке ResizeImageGet
+  // деградирует и thumbUrl приходит пустым
+  const replacePng = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAyAAAAJYCAIAAAAVFBUnAAAACXBIWXMAAA7EAAAOxAGVKw4bAAALcElEQVR4nO3czW3iUBhA0SSaOpIyqI4NaS4pg06yQLIiG3kYcwdb+JwV8g/vLa/sD17fv04vAAB03tbeAADAsxFYAAAxgQUAEBNYAAAxgQUAEBNYAAAxgQUAEBNYAAAxgQUAEBNYAAAxgQUAEBNYAAAxgQUAEBNYAAAxgQUAEBNYAAAxgQUAEBNYAAAxgQUAEBNYAAAxgQUAEBNYAAAxgQUAEBNYAAAxgQUAEBNYAAAxgQUAEBNYAAAxgQUAEBNYAAAxgQUAEBNYAAAxgQUAEBNYAAAxgQUAEBNYAAAxgQUAEBNYAAAxgQUAEBNYAAAxgQUAEBNYAACxP2stfD4cpwc/vj/vPHX5PL/o9JrR1y7Yxvy6AMCurBZYF7+75Hw4ng/H4chMsszcNWOootH1o+pasI3b9wAA7MFeXhEOFTV6BDV9prWgk2aeeAEAO7SLwBpV1F97yLMoAOAeK78ivDr8ND01Kp6Zu3Iz2wAAuGrlwBpM2+XGGaz/TVQBAP9qE0PujxkSNyMFADzGJmawHjMkfplwH+bcZ0gxAOAemwisl/V+iDddd8EebvkLLgBgP7YygzW1bJJ9wV0f35+Xd5RX71o2hg8A7Nnr+9dp7T0AADyVrbwiBAB4GgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACAmsAAAYgILACD2A6jBlXipdZbzAAAAAElFTkSuQmCC',
+    'base64',
+  );
+  await page.setInputFiles('.mtai-modal input.filepond--browser[type="file"]', {
+    name: 'e2e-replace.png',
+    mimeType: 'image/png',
+    buffer: replacePng,
+  });
+  await page.waitForFunction(
+    (before) => {
+      const grid = document.querySelector('.mtai-photo-card img[data-viewer]');
+      return grid && grid.getAttribute('src') !== before;
+    },
+    gridSrcBefore,
+    { timeout: 45000 },
+  );
+  report('замена изображения в попапе', true);
+  await page.locator('.mtai-modal__btn--primary').click();
+  await page.waitForTimeout(1500);
+
+  // 11. Загрузка файла через FilePond
   await pond.waitFor({ state: 'visible', timeout: 10000 });
   // FilePond прячет настоящий input под классом filepond--browser
-  await page.setInputFiles('input.filepond--browser[type="file"]', {
+  await page.setInputFiles('.mtai-gallery input.filepond--browser[type="file"]', {
     name: 'e2e-upload.jpg',
     mimeType: 'image/jpeg',
     buffer: seedJpeg,

@@ -45,6 +45,7 @@ class Photo extends Base
 		return [
 			'list' => ['prefilters' => [new ActionFilter\HttpMethod([ActionFilter\HttpMethod::METHOD_GET])]],
 			'upload' => ['prefilters' => $this->postFilters()],
+			'replace' => ['prefilters' => $this->postFilters()],
 			'revert' => ['prefilters' => $this->postFilters()],
 			'update' => ['prefilters' => $this->postFilters()],
 			'delete' => ['prefilters' => $this->postFilters()],
@@ -147,46 +148,13 @@ class Photo extends Base
 			return [];
 		}
 
-		$file = $this->request->getFileList()->get(self::FILE_FIELD);
-		if (
-			!is_array($file)
-			|| ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK
-			|| !is_uploaded_file($file['tmp_name'] ?? '')
-		)
+		$file = $this->validatedImage();
+		if ($file === null)
 		{
-			$this->addError(new Error('Файл не получен'));
-
 			return [];
 		}
-
 		$size = (int)$file['size'];
-		if ($size <= 0 || $size > self::MAX_SIZE)
-		{
-			$this->addError(new Error('Размер файла больше допустимого (50 МБ)'));
-
-			return [];
-		}
-
 		$extension = mb_strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-		if ($extension === '' || !isset(PhotoFormatter::ALLOWED_TYPES[$extension]))
-		{
-			$this->addError(new Error('Разрешены только изображения: ' . implode(', ', array_keys(PhotoFormatter::ALLOWED_TYPES))));
-
-			return [];
-		}
-
-		$imageInfo = @getimagesize($file['tmp_name']);
-		if (
-			!is_array($imageInfo)
-			|| ($imageInfo[2] ?? 0) !== PhotoFormatter::ALLOWED_TYPES[$extension]
-			|| (int)($imageInfo[0] ?? 0) <= 0
-			|| (int)($imageInfo[1] ?? 0) <= 0
-		)
-		{
-			$this->addError(new Error('Файл не является корректным изображением'));
-
-			return [];
-		}
 
 		// название — имя файла без расширения
 		$name = trim(pathinfo($file['name'], PATHINFO_FILENAME));
@@ -254,6 +222,125 @@ class Photo extends Base
 	public function revertAction(int $id): array
 	{
 		return $this->deleteElement($id, 'element_delete');
+	}
+
+	/**
+	 * FilePond process в попапе редактирования: заменяет DETAIL_PICTURE
+	 * существующей фотографии (название и подпись не трогает). Замена
+	 * применяется сразу; revert у пруда здесь ничего не откатывает.
+	 *
+	 * @return array обновлённая фотография
+	 */
+	public function replaceAction(int $id): array
+	{
+		$iblockId = $this->requireIblockId();
+		if ($iblockId <= 0)
+		{
+			return [];
+		}
+
+		if (!$this->ownElement($iblockId, $id))
+		{
+			$this->addError(new Error('Фотография не найдена'));
+
+			return [];
+		}
+		if (!Permission::has($iblockId, 'element_edit'))
+		{
+			$this->addError(new Error('Нет прав на редактирование фотографий'));
+
+			return [];
+		}
+
+		$file = $this->validatedImage();
+		if ($file === null)
+		{
+			return [];
+		}
+
+		$element = new CIBlockElement();
+		if (!$element->Update($id, ['DETAIL_PICTURE' => $file]))
+		{
+			$this->addError(new Error($element->LAST_ERROR ?: 'Не удалось заменить изображение'));
+
+			return [];
+		}
+
+		$row = CIBlockElement::GetList(
+			[],
+			['ID' => $id, 'IBLOCK_ID' => $iblockId, 'CHECK_PERMISSIONS' => 'N'],
+			false,
+			['nTopCount' => 1],
+			['ID', 'NAME', 'PREVIEW_TEXT', 'DETAIL_PICTURE']
+		)->Fetch();
+		$photo = PhotoFormatter::formatElement((array)$row);
+		if (!$photo)
+		{
+			$this->addError(new Error('Не удалось перечитать фотографию'));
+
+			return [];
+		}
+
+		// рейтинг не меняется — клиент обновит карточку целиком, отдаём текущий
+		$rating = Rating::formatBatch('IBLOCK_ELEMENT', [$id])[$id] ?? null;
+		if ($rating)
+		{
+			$photo['rating'] = $rating;
+		}
+
+		return $photo;
+	}
+
+	/**
+	 * Multipart-файл 'file' (FilePond): получен, в пределах размера, расширение
+	 * из белого списка и содержимое действительно изображение.
+	 * Ошибки кладёт в ответ, возвращает null при провале.
+	 *
+	 * @return array|null элемент $_FILES
+	 */
+	private function validatedImage(): ?array
+	{
+		$file = $this->request->getFileList()->get(self::FILE_FIELD);
+		if (
+			!is_array($file)
+			|| ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK
+			|| !is_uploaded_file($file['tmp_name'] ?? '')
+		)
+		{
+			$this->addError(new Error('Файл не получен'));
+
+			return null;
+		}
+
+		if ((int)$file['size'] <= 0 || (int)$file['size'] > self::MAX_SIZE)
+		{
+			$this->addError(new Error('Размер файла больше допустимого (50 МБ)'));
+
+			return null;
+		}
+
+		$extension = mb_strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+		if ($extension === '' || !isset(PhotoFormatter::ALLOWED_TYPES[$extension]))
+		{
+			$this->addError(new Error('Разрешены только изображения: ' . implode(', ', array_keys(PhotoFormatter::ALLOWED_TYPES))));
+
+			return null;
+		}
+
+		$imageInfo = @getimagesize($file['tmp_name']);
+		if (
+			!is_array($imageInfo)
+			|| ($imageInfo[2] ?? 0) !== PhotoFormatter::ALLOWED_TYPES[$extension]
+			|| (int)($imageInfo[0] ?? 0) <= 0
+			|| (int)($imageInfo[1] ?? 0) <= 0
+		)
+		{
+			$this->addError(new Error('Файл не является корректным изображением'));
+
+			return null;
+		}
+
+		return $file;
 	}
 
 	/**

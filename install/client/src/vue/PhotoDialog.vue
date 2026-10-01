@@ -1,19 +1,31 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import type { Photo } from '../js/types';
+import type { GalleryConfig, Photo } from '../js/types';
+import type { Api } from '../js/api';
+import Uploader from './Uploader.vue';
 
 const props = defineProps<{
+  api: Api;
+  config: GalleryConfig;
   open: boolean;
   photo: Photo | null;
+  /** право element_edit: показывать ли загрузчик замены изображения */
+  canReplace: boolean;
   save: (name: string, description: string) => Promise<void>;
 }>();
 
-const emit = defineEmits<{ 'update:open': [value: boolean] }>();
+const emit = defineEmits<{
+  'update:open': [value: boolean];
+  /** изображение заменено — карточку в сетке нужно обновить */
+  replaced: [photo: Photo];
+}>();
 
 const name = ref('');
 const description = ref('');
 const error = ref('');
 const saving = ref(false);
+/** превью обновляется сразу после замены изображения */
+const previewUrl = ref('');
 
 watch(
   () => props.open,
@@ -21,10 +33,16 @@ watch(
     if (open && props.photo) {
       name.value = props.photo.name;
       description.value = props.photo.description;
+      previewUrl.value = props.photo.thumbUrl;
       error.value = '';
     }
   },
 );
+
+function onReplaced(photo: Photo): void {
+  previewUrl.value = photo.thumbUrl;
+  emit('replaced', photo);
+}
 
 async function submit(): Promise<void> {
   if (!name.value.trim()) {
@@ -56,11 +74,23 @@ async function submit(): Promise<void> {
           Фотография
         </div>
         <img
-          v-if="photo.thumbUrl"
+          v-if="previewUrl"
           class="mtai-photo-dialog__preview"
-          :src="photo.thumbUrl"
+          :src="previewUrl"
           :alt="photo.name"
         >
+        <template v-if="canReplace && photo">
+          <label class="mtai-modal__label">Заменить изображение</label>
+          <Uploader
+            :api="api"
+            :process-action="config.actions.photoReplace"
+            :process-params="{ id: photo.id }"
+            :multiple="false"
+            :revert-deletes="false"
+            idle-label="Перетащите изображение или &lt;span class='filepond--label-action'&gt;выберите&lt;/span&gt; — применяется сразу"
+            @added="onReplaced"
+          />
+        </template>
         <label class="mtai-modal__label">Название</label>
         <input
           v-model="name"
