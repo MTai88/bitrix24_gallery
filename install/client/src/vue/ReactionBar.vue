@@ -14,12 +14,19 @@
 import { onMounted, ref, watch } from 'vue';
 import type { GalleryConfig, Rating } from '../js/types';
 
-const props = defineProps<{
-  config: GalleryConfig;
-  entityType: string;
-  entityId: number;
-  rating: Rating;
-}>();
+const props = withDefaults(
+  defineProps<{
+    config: GalleryConfig;
+    entityType: string;
+    entityId: number;
+    rating: Rating;
+    /** pill — белая пилюля (на фото), plain — без подложки (альбомы) */
+    variant?: 'pill' | 'plain';
+  }>(),
+  {
+    variant: 'pill',
+  },
+);
 
 const host = ref<HTMLElement | null>(null);
 
@@ -142,6 +149,7 @@ onMounted(mount);
   <span
     ref="host"
     class="mtai-reaction"
+    :class="`mtai-reaction--${props.variant}`"
   />
 </template>
 
@@ -179,6 +187,20 @@ onMounted(mount);
   padding: 3px 9px;
   line-height: 1;
   box-shadow: 0 1px 4px rgba(15, 18, 22, 0.18);
+}
+
+/* штатный .feed-new-like reserves 13px справа под всплывающую панель
+   выбора реакций — у нас панель позиционируется от кнопки, запас не нужен */
+.mtai-reaction .feed-new-like {
+  margin-right: 0;
+}
+
+/* альбомы: без пилюли — фон и так белый, чип выглядел чужеродно */
+.mtai-reaction--plain {
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
 }
 
 /* «Нравится» — нейтральный текст вместо ссылки в цвет портала */

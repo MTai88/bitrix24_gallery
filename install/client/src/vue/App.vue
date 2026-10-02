@@ -397,6 +397,7 @@ watch([sentinelInview, photosLoading, photoCursor], () => {
           </div>
           <div class="mtai-album__meta">
             <ReactionBar
+              variant="plain"
               :config="props.config"
               entity-type="IBLOCK_SECTION"
               :entity-id="album.id"
@@ -470,6 +471,7 @@ watch([sentinelInview, photosLoading, photoCursor], () => {
           <span class="mtai-gallery__muted">{{ currentAlbum.count }} фото</span>
           <ReactionBar
             class="mtai-gallery__album-like"
+            variant="plain"
             :config="props.config"
             entity-type="IBLOCK_SECTION"
             :entity-id="currentAlbum.id"
