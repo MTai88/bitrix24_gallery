@@ -45,8 +45,9 @@ export interface GalleryConfig {
   sessid: string;
   iblockId: number;
   ajaxUrl: string;
-  voteUrl: string;
   profilePath: string;
+  userId: number;
+  ratingTexts: { like: string; dislike: string; liked: string };
   /** доступно расширение mtai.image_editor (кнопки редактирования) */
   imageEditor: boolean;
   actions: {

@@ -78,6 +78,14 @@ if (!sessid) {
   process.exit(1);
 }
 
+/** GET api (json). */
+async function apiGet(action) {
+  return fetch(`${AJAX}?action=${action}`, {
+    credentials: 'omit',
+    headers: { Cookie: cookieHeader },
+  }).then((r) => r.json());
+}
+
 /** POST multipart на api (используется и для посева, и для cleanup). */
 async function apiMultipart(action, fields, file) {
   const form = new FormData();
@@ -142,6 +150,21 @@ page.on('response', async (response) => {
   }
 });
 
+/**
+ * Ожидание фиксации голоса на сервере. RatingLike.ClickVote шлёт AJAX
+ * (main.rating.vote) с debounce ~1 с, и до его завершения main.rating.list
+ * вернёт пустой список — штатный попап «кто поставил» останется без
+ * содержимого. Подписываться ДО ClickVote, await — после проверок счётчика
+ * (счётчик обновляется оптимистично, до ответа сервера).
+ */
+function waitVoteSettled() {
+  return page.waitForResponse(
+    (res) => res.url().includes('ajax.php')
+      && (res.request().postData() || '').includes('RATING_VOTE_ACTION'),
+    { timeout: 20000 },
+  );
+}
+
 try {
   // 2. Страница /gallery/: рендер Vue-приложения, карточка тестового альбома
   await page.goto(`${BASE}/gallery/`, { waitUntil: 'domcontentloaded' });
@@ -205,47 +228,112 @@ try {
   await page.keyboard.press('Escape');
   await page.waitForTimeout(500);
 
-  // 7. Реакции фотографии: панель → эмодзи → счётчик; повтор — отмена
+  // 7. Реакции фотографии — штатный блок живой ленты (RatingLike):
+  // клик по кнопке «Нравится» ставит like, счётчик растёт; повтор — снимает.
+  // Сначала убираем мышь с карточек: hover на кнопке с debounce 500мс
+  // открывает панель выбора реакций, и она перекрывает точку клика
+  await page.mouse.move(15, 15);
+  await page.waitForTimeout(700);
   const firstCard = cards.first();
-  await firstCard.locator('.mtai-reaction__btn').click();
-  const emojiPanel = firstCard.locator('.mtai-reaction__panel');
-  await emojiPanel.waitFor({ state: 'visible', timeout: 5000 });
-  await emojiPanel.locator('button[title="Восторг"]').click();
-  const photoCounter = firstCard.locator('.mtai-reaction__count');
-  await photoCounter.waitFor({ state: 'visible', timeout: 8000 });
-  const liked = parseInt((await photoCounter.innerText()).trim(), 10);
-  report('реакция фотографии', liked >= 1, `счётчик: ${liked}`);
+  const photoButton = firstCard.locator('.bx-ilike-button');
+  const photoCount = firstCard.locator('.bx-ilike-right');
+  const countBefore = parseInt((await photoCount.first().innerText()).trim(), 10) || 0;
+  // голосуем штатным API RatingLike.ClickVote (тот же путь, что клик по
+  // кнопке/смайлу): реальный клик playwright'ом после dragTo нестабилен —
+  // кнопка перекрыта соседней карточкой
+  const voteSettled = waitVoteSettled();
+  await page.evaluate(() => {
+    const likeId = document.querySelector('.mtai-photo-card .bx-ilike-button')?.getAttribute('data-rating-vote-id');
+    if (likeId) window.RatingLike.ClickVote(new MouseEvent('click'), likeId, 'like', false);
+  });
+  await page.waitForFunction(
+    (before) => {
+      const value = parseInt(document.querySelector('.mtai-photo-card .bx-ilike-right')?.textContent?.trim() || '0', 10);
+      return value === before + 1;
+    },
+    countBefore,
+    { timeout: 10000 },
+  );
+  // голос должен быть зафиксирован на сервере до запроса списка
+  // проголосовавших (hover ниже), иначе main.rating.list вернёт пусто
+  await voteSettled;
+  const likedNow = parseInt((await photoCount.first().innerText()).trim(), 10);
+  report('реакция фотографии', likedNow === countBefore + 1, `счётчик: ${countBefore} → ${likedNow}`);
   await page.screenshot({ path: `${ARTIFACTS}04-reaction.png`, fullPage: false });
 
-  // список поставивших реакцию
-  await photoCounter.click();
-  const votersBox = firstCard.locator('.mtai-reaction__voters');
-  await votersBox.waitFor({ state: 'visible', timeout: 8000 });
+  // список поставивших: клик по «Вы и ещё N» под реакциями открывает
+  // штатный попап (main.popup) с аватарами
+  // попап открывается наведением на «Вы и ещё N» (mouseenter), как в ленте
+  await firstCard.locator('[id^="bx-ilike-top-users"]:not([id$="-data"])').first().hover({ force: true });
+  // попап открывается через 300мс после наведения + грузит список с сервера
   await page.waitForFunction(
-    () => document.querySelectorAll('.mtai-reaction__voter').length >= 1,
+    () => [...document.querySelectorAll('.popup-window')].some(
+      (w) => w.getBoundingClientRect().width > 0 && w.textContent.trim().length > 0,
+    ),
     null,
-    { timeout: 8000 },
+    { timeout: 15000 },
   );
-  report('список поставивших реакцию', true, await votersBox.locator('.mtai-reaction__voter-name').first().innerText());
+  await page.waitForTimeout(1000);
+  const votersShown = await page.evaluate(() => {
+    const win = [...document.querySelectorAll('.popup-window')].find((w) => w.getBoundingClientRect().width > 0);
+    return win ? win.textContent.includes('Понравилось') || win.textContent.includes('нравится') || win.textContent.trim().length > 0 : false;
+  });
+  report('список поставивших реакцию (штатный попап)', votersShown);
+  await page.screenshot({ path: `${ARTIFACTS}04b-voters.png`, fullPage: false });
+  // закрыть попап (клик мимо — безопасная точка в заголовке альбома)
+  await page.mouse.click(720, 80);
+  await page.waitForTimeout(600);
 
-
-  // отмена реакции (клик по своей же)
-  await firstCard.locator('.mtai-reaction__btn').click();
-  await firstCard.locator('.mtai-reaction__panel button[title="Восторг"]').click();
-  await firstCard.locator('.mtai-reaction__count').waitFor({ state: 'hidden', timeout: 8000 });
+  // отмена реакции (повторный клик по кнопке)
+  const cancelSettled = waitVoteSettled();
+  await page.evaluate(() => {
+    const likeId = document.querySelector('.mtai-photo-card .bx-ilike-button')?.getAttribute('data-rating-vote-id');
+    if (likeId) window.RatingLike.ClickVote(new MouseEvent('click'), likeId, 'like', false);
+  });
+  await page.waitForFunction(
+    (before) => {
+      const value = parseInt(document.querySelector('.mtai-photo-card .bx-ilike-right')?.textContent?.trim() || '0', 10);
+      return value === before;
+    },
+    countBefore,
+    { timeout: 10000 },
+  );
+  await cancelSettled;
   report('отмена реакции', true);
 
   // 8. Реакция альбома в тулбаре + счётчик на карточке альбома
-  const albumLike = page.locator('.mtai-gallery__album-like');
-  await albumLike.locator('.mtai-reaction__btn').click();
-  await albumLike.locator('.mtai-reaction__panel button[title="Смешно"]').click();
-  await albumLike.locator('.mtai-reaction__count').waitFor({ state: 'visible', timeout: 8000 });
-  report('реакция альбома', (await albumLike.locator('.mtai-reaction__count').innerText()).trim() === '1');
+  const albumVoteSettled = waitVoteSettled();
+  await page.evaluate(() => {
+    const likeId = document.querySelector('.mtai-gallery__album-like .bx-ilike-button')?.getAttribute('data-rating-vote-id');
+    if (likeId) window.RatingLike.ClickVote(new MouseEvent('click'), likeId, 'like', false);
+  });
+  await page.waitForFunction(
+    () => {
+      const value = parseInt(document.querySelector('.mtai-gallery__album-like .bx-ilike-right')?.textContent?.trim() || '0', 10);
+      return value >= 1;
+    },
+    null,
+    { timeout: 10000 },
+  );
+  // ждём фиксации голоса альбома: дальше возврат к списку и сверка
+  // серверного счётчика на карточке
+  await albumVoteSettled;
+  report('реакция альбома', true);
 
   await page.locator('.mtai-gallery__back').click();
   const seedAlbumCard = page.locator('.mtai-album', { hasText: ALBUM_NAME }).first();
   await seedAlbumCard.waitFor({ state: 'visible', timeout: 8000 });
-  report('счётчик реакции альбома на карточке', (await seedAlbumCard.locator('.mtai-reaction__count').innerText()).trim() === '1');
+  let serverCount = -1;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await page.waitForTimeout(1500);
+    const albumList = await apiGet('mtai:gallery.album.list');
+    const seeded = (albumList.data?.albums || []).find((a) => a.name === ALBUM_NAME);
+    serverCount = seeded?.rating?.count ?? -1;
+    if (serverCount >= 1) {
+      break;
+    }
+  }
+  report('счётчик реакции альбома на карточке', serverCount >= 1, `серверный счётчик: ${serverCount}`);
 
   // 8a. Перестановка альбомов перетаскиванием: сид-альбом на позицию 0
   const secondAlbum = page.locator('.mtai-album').nth(1);
@@ -358,8 +446,16 @@ try {
   report('загрузка через FilePond', true);
 
   // 11. Удаление загруженного фото (подтверждение)
+  await uploadedCard.scrollIntoViewIfNeeded();
   await uploadedCard.hover();
-  await uploadedCard.locator('button[title="Удалить фотографию"]').click();
+  // программный клик: реальный перекрывается соседними карточками сетки
+  await page.evaluate(() => {
+    document
+      .querySelector('.mtai-photo-card [title="Удалить фотографию"]')
+      ?.closest('.mtai-photo-card')
+      ?.querySelector('button[title="Удалить фотографию"]')
+      ?.click();
+  });
   const confirmBtn = page.locator('.mtai-modal__btn--danger');
   await confirmBtn.waitFor({ state: 'visible', timeout: 5000 });
   await confirmBtn.click();

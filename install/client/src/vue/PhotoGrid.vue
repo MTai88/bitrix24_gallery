@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import type { Api } from '../js/api';
-import type { Photo } from '../js/types';
+import type { GalleryConfig, Photo } from '../js/types';
 import ReactionBar from './ReactionBar.vue';
 
 const props = defineProps<{
   api: Api;
+  config: GalleryConfig;
   photos: Photo[];
   canEdit: boolean;
   canDelete: boolean;
@@ -130,8 +131,7 @@ function formatSize(size: number): string {
       </div>
       <div class="mtai-photo-card__reaction">
         <ReactionBar
-          small
-          :api="api"
+          :config="config"
           entity-type="IBLOCK_ELEMENT"
           :entity-id="photo.id"
           :rating="photo.rating"

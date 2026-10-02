@@ -23,9 +23,12 @@
   (`local/js/mtai/image_editor/`) и модуля `landing`; без расширения кнопки
   редактирования просто нет;
 - **реакции («лайки») живой ленты** (👍😍😄😮😢😡🤦) на альбомы и фотографии —
-  на штатных рейтингах Bitrix24 (как в решении [bitrix24_likes](https://github.com/MTai88/bitrix24_likes)):
-  голоса и счётчики в стандартных таблицах, голосование через штатный
-  `rating.vote`, список поставивших с аватарами;
+  штатный блок живой ленты целиком (как в решении [bitrix24_likes](https://github.com/MTai88/bitrix24_likes),
+  но без своего JS): `ReactionBar` собирает разметку шаблона `like_react`,
+  а поведением управляет `RatingLike` из расширения `main.rating` — кнопка
+  «Нравится», анимированные смайлы-спрайты, голосование (`main.rating.vote`)
+  и попап «кто поставил» с аватарами (`main.rating.list`). Голоса и счётчики —
+  в стандартных таблицах рейтингов, своих таблиц нет;
 - просмотр штатным **просмотрщиком Bitrix24** (`BX.UI.Viewer`, как у полей
   «файл» универсальных списков) — клик по фото, карусель по всем фото сетки;
 - редактирование из публички: право определяются правами на инфоблок
@@ -94,7 +97,7 @@ docker run --rm -v "$PWD:/app" -w /app node:22-alpine sh -c "npm ci && npm run b
 
 Vue (install/client/src/)
   ├─ index.ts — монтирует App в #mtai-gallery-app
-  ├─ js/api.ts — клиент ajax-контроллеров + голосование rating.vote
+  ├─ js/api.ts — клиент ajax-контроллеров модуля
   ├─ js/viewer.ts — BX.UI.Viewer.bind() на корень
   └─ vue/ — App, PhotoGrid, ReactionBar (реакции), Uploader (FilePond),
      InfiniteSentinel, диалоги
@@ -104,9 +107,11 @@ AJAX: /bitrix/services/main/ajax.php?action=mtai:gallery.*
   └─ photo.list / photo.upload (FilePond process) / photo.replace
      / photo.reorder / photo.revert / photo.update / photo.delete
 
-Реакции: /bitrix/components/bitrix/rating.vote/vote.ajax.php (штатный) —
-  данные (счётчики, моя реакция, подписанный ключ) — в rating полей
-  album.list / photo.list; сущности IBLOCK_SECTION / IBLOCK_ELEMENT
+Реакции: lib/Rating.php добавляет в rating поля album.list / photo.list
+  счётчики, разбивку реакций, мою реакцию и подписанный TimeSigner-ключ
+  («TYPE-ID», соль main.rating.vote); сущности IBLOCK_SECTION / IBLOCK_ELEMENT.
+  Клиент (ReactionBar) по этим данным собирает штатную разметку like_react
+  и передаёт её RatingLike.Set() — дальше всё делает main.rating
 ```
 
 ## Требования

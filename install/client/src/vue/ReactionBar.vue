@@ -1,445 +1,145 @@
 <script setup lang="ts">
 /**
- * Реакции («лайки») фотографии/альбома — как в живой ленте, на штатных
- * рейтингах Bitrix24: клик по кнопке открывает панель реакций, голосование
- * идёт в стандартный rating.vote (ключ данные списка приносят подписанным),
- * клик по счётчику — список проголовавших с аватарами.
+ * Реакции («лайки») — ШТАТНЫЙ рендер живой ленты Bitrix24: разметка как у
+ * bitrix:rating.vote (шаблоны like + like_react) + обёртка top-panel-container
+ * как в socialnetwork.log.entry; поведением управляет RatingLike из
+ * main.rating — он сам рисует анимированные смайлы-спрайты, голосует через
+ * штатный rating.vote, открывает попап «кто поставил» с аватарами.
+ *
+ * Разметку собираем один раз при монтировании в нереактивный host —
+ * RatingLike мутирует DOM сам, Vue внутрь не лезет. Данные (счётчик,
+ * разбивка реакций, моя реакция, подписанный ключ) приходят в rating
+ * полем album.list / photo.list (lib/Rating.php).
  */
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
-import type { Api } from '../js/api';
-import type { Rating } from '../js/types';
+import { onMounted, ref, watch } from 'vue';
+import type { GalleryConfig, Rating } from '../js/types';
 
 const props = defineProps<{
-  api: Api;
+  config: GalleryConfig;
   entityType: string;
   entityId: number;
   rating: Rating;
-  /** компактный режим — на карточках сетки */
-  small?: boolean;
 }>();
 
-interface Voter {
-  USER_ID: number;
-  FULL_NAME: string;
-  PHOTO_SRC: string;
-  URL: string;
-  VOTE_VALUE: number;
-}
+const host = ref<HTMLElement | null>(null);
 
-/** реакции живой ленты: имя => эмодзи и подпись */
-const REACTIONS: Array<{ name: string; emoji: string; title: string }> = [
-  { name: 'like', emoji: '👍', title: 'Нравится' },
-  { name: 'kiss', emoji: '😍', title: 'Восторг' },
-  { name: 'laugh', emoji: '😄', title: 'Смешно' },
-  { name: 'wonder', emoji: '😮', title: 'Удивление' },
-  { name: 'cry', emoji: '😢', title: 'Грусть' },
-  { name: 'anger', emoji: '😡', title: 'Возмущение' },
-  { name: 'facepalm', emoji: '🤦', title: 'Facepalm' },
-];
+let mount: (() => void) | null = null;
 
-const state = reactive({
-  count: props.rating.count,
-  reactions: { ...props.rating.reactions } as Record<string, number>,
-  myReaction: props.rating.myReaction,
-  key: props.rating.key,
-});
-
-// список перезагрузили (смена альбома/страницы) — синхронизируемся
+// рейтинг пришёл заново (например, loadAlbums после возврата из альбома) —
+// пересобираем блок: внутренности не реактивны, RatingLike сам их не обновит
 watch(
   () => props.rating,
-  (rating) => {
-    state.count = rating.count;
-    state.reactions = { ...rating.reactions };
-    state.myReaction = rating.myReaction;
-    state.key = rating.key;
+  () => {
+    mount?.();
   },
 );
 
-const panelOpen = ref(false);
-const votersOpen = ref(false);
-const voters = ref<Voter[]>([]);
-const votersTotal = ref(0);
-const votersPage = ref(0);
-const votersLoading = ref(false);
-
-/** до трёх самых популярных реакций — на кнопке */
-const topReactions = computed(() =>
-  Object.entries(state.reactions)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 3)
-    .map(([name, count]) => ({ name, count, ...REACTIONS.find((r) => r.name === name) })),
-);
-
-function togglePanel(): void {
-  panelOpen.value = !panelOpen.value;
-  if (panelOpen.value) {
-    votersOpen.value = false;
-  }
+function escHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
-// клик мимо — закрыть панель и список проголосовавших
-function onDocumentClick(): void {
-  panelOpen.value = false;
-  votersOpen.value = false;
+/**
+ * Стартовый текст «Вы и ещё N» под реакциями — по образцу
+ * RatingRender.getTopUsersText (после голосования текст перепишет сам
+ * RatingLike). Клик/hover по этому тексту открывает штатный попап
+ * «кто поставил» — пустой текст делал его недоступным.
+ */
+function buildTopUsersText(you: boolean, more: number): string {
+  const span = (text: string | number) => `<span class="feed-post-emoji-text-item">${text}</span>`;
+  if (you) {
+    return more > 0 ? `${span('Вы')}&nbsp;и еще ${span(more)}` : span('Вы');
+  }
+  return more > 0 ? span(more) : '';
 }
 
-onMounted(() => {
-  document.addEventListener('click', onDocumentClick);
-});
-
-onBeforeUnmount(() => {
-  document.removeEventListener('click', onDocumentClick);
-});
-
-async function vote(reaction: string): Promise<void> {
-  const previous = { count: state.count, reactions: { ...state.reactions }, myReaction: state.myReaction };
-  const action = state.myReaction === reaction ? 'cancel' : state.myReaction ? 'change' : 'plus';
-
-  // оптимистично: применяем локально, при отказе ядра — откат
-  if (action === 'cancel') {
-    state.myReaction = null;
-    state.count -= 1;
-    state.reactions[reaction] = Math.max(0, (state.reactions[reaction] ?? 1) - 1);
-    if (!state.reactions[reaction]) {
-      delete state.reactions[reaction];
-    }
-  } else {
-    if (state.myReaction) {
-      state.reactions[state.myReaction] = Math.max(0, (state.reactions[state.myReaction] ?? 1) - 1);
-      if (!state.reactions[state.myReaction]) {
-        delete state.reactions[state.myReaction];
-      }
-    } else {
-      state.count += 1;
-    }
-    state.myReaction = reaction;
-    state.reactions[reaction] = (state.reactions[reaction] ?? 0) + 1;
+// сборка и инициализация блока; вызывается при монтировании и при обновлении
+// props.rating (внутренности не реактивны — проще пересобрать с новым likeId)
+mount = () => {
+  if (!host.value) {
+    return;
   }
+  const rating = props.rating;
+  // likeId уникален на каждый монтаж (как VOTE_ID в rating.vote:
+  // TYPE-ID-{time+random}) — RatingLike хранит инстансы в статическом repo
+  // и после голосования обновляет их по likeId/entity: переиспользование id
+  // на размонтированных карточках роняет обработчик
+  const likeId = `mtai-${props.entityType.toLowerCase()}-${props.entityId}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  const youLike = rating.myReaction ? ' bx-you-like' : '';
+  const count = rating.count > 0 ? rating.count : 0;
+  const hasReactions = Object.keys(rating.reactions).length > 0;
+  const you = rating.myReaction !== null;
+  const topUsersHtml = buildTopUsersText(you, Math.max(0, count - (you ? 1 : 0)));
 
-  const response = await props.api.vote(props.entityType, props.entityId, state.key, action, reaction);
-  if (response) {
-    // ядро — источник истины: счётчики и разбивку берём из ответа
-    state.count = Number(response.items_all ?? response.resultVotes ?? state.count);
-    const reactions: Record<string, number> = {};
-    for (const [name, count] of Object.entries(response.reactions ?? {})) {
-      if ((count as number) > 0) {
-        reactions[name] = count as number;
-      }
-    }
-    state.reactions = reactions;
-    state.myReaction = action === 'cancel' ? null : reaction;
-  } else {
-    Object.assign(state, previous);
+  host.value.innerHTML = `
+<div id="feed-post-emoji-top-panel-container-${likeId}" class="feed-post-emoji-top-panel-box${count > 0 ? ' feed-post-emoji-top-panel-container-active' : ''}">
+  <span class="ilike-light">
+    <span class="bx-ilike-button" id="bx-ilike-button-${likeId}" data-vote-key-signed="${escHtml(rating.key)}">
+      <span class="bx-ilike-right-wrap${youLike}"><span class="bx-ilike-right">${count}</span></span>
+      <span class="bx-ilike-left-wrap"><a href="#like" class="bx-ilike-text">${escHtml(props.config.ratingTexts.like)}</a></span>
+    </span>
+  </span>
+  <div id="feed-post-emoji-top-panel-${likeId}" class="feed-post-emoji-container${hasReactions ? ' feed-post-emoji-container-nonempty' : ''}" data-popup="N">
+    <span id="bx-ilike-user-reaction-${likeId}" data-value="${escHtml(rating.myReaction ?? '')}" style="display: none;"></span>
+    <span id="feed-post-emoji-icons-${likeId}" class="feed-post-emoji-icon-box">
+      <span data-like-id="${likeId}" data-reactions-data="${escHtml(JSON.stringify(rating.reactions))}" class="feed-post-emoji-icon-container"></span>
+      <div id="bx-ilike-count-${likeId}" data-myreaction="${escHtml(rating.myReaction ?? '')}" class="feed-post-emoji-text-box bx-ilike-right-wrap${youLike}">
+        <div class="feed-post-emoji-text-item bx-ilike-right${count <= 0 ? ' feed-post-emoji-text-counter-invisible' : ''}">${count}</div>
+      </div>
+    </span>
+    <div class="feed-post-emoji-text-box" id="bx-ilike-top-users-${likeId}">${topUsersHtml}</div>
+    <span style="display: none;" id="bx-ilike-top-users-data-${likeId}" data-users="${escHtml(JSON.stringify({ TOP: [], MORE: count }))}"></span>
+  </div>
+  <span class="bx-ilike-wrap-block bx-ilike-wrap-block-react" id="bx-ilike-popup-cont-${likeId}" style="display:none;">
+    <span class="bx-ilike-popup"><span class="bx-ilike-wait"></span></span>
+  </span>
+</div>`;
+
+  const ratingLike = (window as unknown as { RatingLike?: any }).RatingLike;
+  if (!ratingLike) {
+    return;
   }
-
-  panelOpen.value = false;
-}
-
-async function openVoters(): Promise<void> {
-  votersOpen.value = !votersOpen.value;
-  panelOpen.value = false;
-  if (votersOpen.value && !voters.value.length) {
-    await loadVoters();
+  if (typeof ratingLike.setParams === 'function') {
+    ratingLike.setParams({ pathToUserProfile: props.config.profilePath });
   }
-}
+  ratingLike.Set({
+    likeId,
+    keySigned: rating.key,
+    entityTypeId: props.entityType,
+    entityId: props.entityId,
+    available: 'Y',
+    userId: props.config.userId,
+    localize: {
+      LIKE_Y: props.config.ratingTexts.like,
+      LIKE_N: props.config.ratingTexts.dislike,
+      LIKE_D: props.config.ratingTexts.liked,
+    },
+    // light — как в живой ленте: иконки реакций рисуются при инициализации
+    // из data-reactions-data (в standart — только после голосования)
+    template: 'light',
+    pathToUserProfile: props.config.profilePath,
+    mobile: false,
+  });
+};
 
-async function loadVoters(): Promise<void> {
-  votersLoading.value = true;
-  try {
-    const response = await props.api.voteList(props.entityType, props.entityId, state.key, votersPage.value + 1);
-    if (response) {
-      voters.value = voters.value.concat(response.items ?? []);
-      votersTotal.value = Number(response.items_all ?? voters.value.length);
-      votersPage.value = Number(response.items_page ?? voters.value.length ? 1 : 0);
-    }
-  } finally {
-    votersLoading.value = false;
-  }
-}
+onMounted(mount);
 </script>
 
 <template>
-  <div
+  <span
+    ref="host"
     class="mtai-reaction"
-    @click.stop
-    @keyup.stop
-  >
-    <button
-      class="mtai-reaction__btn"
-      :class="{ 'mtai-reaction__btn--mine': !!state.myReaction, 'mtai-reaction__btn--small': small }"
-      type="button"
-      title="Реакция"
-      @click="togglePanel"
-    >
-      <span
-        v-if="topReactions.length"
-        class="mtai-reaction__stack"
-      >
-        <span
-          v-for="r in topReactions"
-          :key="r.name"
-          class="mtai-reaction__stack-emoji"
-        >{{ r.emoji }}</span>
-      </span>
-      <span
-        v-else
-        class="mtai-reaction__thumb"
-        :class="{ 'mtai-reaction__thumb--mine': !!state.myReaction }"
-      >👍</span>
-    </button>
-    <button
-      v-if="state.count > 0"
-      class="mtai-reaction__count"
-      :class="{ 'mtai-reaction__count--small': small }"
-      type="button"
-      title="Кто поставил реакцию"
-      @click="openVoters"
-    >
-      {{ state.count }}
-    </button>
-
-    <!-- панель выбора реакции -->
-    <div
-      v-if="panelOpen"
-      class="mtai-reaction__panel"
-    >
-      <button
-        v-for="r in REACTIONS"
-        :key="r.name"
-        class="mtai-reaction__emoji"
-        :class="{ 'mtai-reaction__emoji--mine': state.myReaction === r.name }"
-        type="button"
-        :title="r.title"
-        @click="vote(r.name)"
-      >
-        {{ r.emoji }}
-      </button>
-    </div>
-
-    <!-- список проголосовавших -->
-    <div
-      v-if="votersOpen"
-      class="mtai-reaction__voters"
-    >
-      <div
-        v-if="votersLoading && !voters.length"
-        class="mtai-reaction__voters-hint"
-      >
-        Загрузка…
-      </div>
-      <a
-        v-for="voter in voters"
-        :key="voter.USER_ID"
-        class="mtai-reaction__voter"
-        :href="voter.URL"
-        target="_blank"
-      >
-        <img
-          v-if="voter.PHOTO_SRC"
-          class="mtai-reaction__voter-photo"
-          :src="voter.PHOTO_SRC"
-          alt=""
-        >
-        <span
-          v-else
-          class="mtai-reaction__voter-photo mtai-reaction__voter-photo--empty"
-        >
-          {{ voter.FULL_NAME.slice(0, 1) }}
-        </span>
-        <span class="mtai-reaction__voter-name">{{ voter.FULL_NAME }}</span>
-      </a>
-      <button
-        v-if="voters.length < votersTotal"
-        class="mtai-reaction__voters-more"
-        type="button"
-        :disabled="votersLoading"
-        @click="loadVoters"
-      >
-        {{ votersLoading ? 'Загрузка…' : `Показать ещё (${votersTotal - voters.length})` }}
-      </button>
-      <div
-        v-else-if="!voters.length && !votersLoading"
-        class="mtai-reaction__voters-hint"
-      >
-        Пока никто не поставил реакцию
-      </div>
-    </div>
-  </div>
+  />
 </template>
 
 <style scoped>
+/* блок реакций нереактивен: RatingLike (main.rating) сам управляет
+   содержимым и стилями — локально только контейнер */
 .mtai-reaction {
-  position: relative;
   display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.mtai-reaction__btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 30px;
-  height: 30px;
-  padding: 0 6px;
-  border: none;
-  border-radius: 15px;
-  background: rgba(255, 255, 255, 0.85);
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-.mtai-reaction__btn:hover {
-  background: #fff;
-}
-
-.mtai-reaction__btn--small {
-  min-width: 26px;
-  height: 26px;
-  border-radius: 13px;
-}
-
-.mtai-reaction__stack {
-  display: inline-flex;
-}
-
-.mtai-reaction__stack-emoji {
-  font-size: 14px;
-  margin-right: -4px;
-}
-
-.mtai-reaction__stack-emoji:last-child {
-  margin-right: 0;
-}
-
-.mtai-reaction__thumb {
-  font-size: 14px;
-  filter: grayscale(1);
-  opacity: 0.55;
-}
-
-.mtai-reaction__thumb--mine {
-  filter: none;
-  opacity: 1;
-}
-
-.mtai-reaction__count {
-  border: none;
-  padding: 0;
-  background: transparent;
-  font-size: 13px;
-  font-weight: 600;
-  color: #2b6ca3;
-  cursor: pointer;
-}
-
-.mtai-reaction__count:hover {
-  text-decoration: underline;
-}
-
-.mtai-reaction__count--small {
-  font-size: 12px;
-}
-
-.mtai-reaction__panel {
-  position: absolute;
-  /* вниз от кнопки: на карточке фото кнопка в верхнем левом углу,
-     панель ложится на изображение и ничем не обрезается */
-  top: calc(100% + 8px);
-  left: 0;
-  z-index: 30;
-  display: flex;
-  gap: 2px;
-  padding: 4px 6px;
-  border-radius: 18px;
-  background: #fff;
-  box-shadow: 0 4px 18px rgba(15, 18, 22, 0.25);
-}
-
-.mtai-reaction__emoji {
-  border: none;
-  background: transparent;
-  font-size: 20px;
-  line-height: 1.4;
-  padding: 2px 3px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: transform 0.1s ease;
-}
-
-.mtai-reaction__emoji:hover {
-  transform: scale(1.25);
-}
-
-.mtai-reaction__emoji--mine {
-  background: #e7f6fd;
-}
-
-.mtai-reaction__voters {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
-  z-index: 30;
-  width: 260px;
-  max-height: 300px;
-  overflow-y: auto;
-  padding: 10px;
-  border-radius: 10px;
-  background: #fff;
-  box-shadow: 0 4px 18px rgba(15, 18, 22, 0.25);
-}
-
-.mtai-reaction__voter {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 2px;
-  color: #232323;
-}
-
-.mtai-reaction__voter:hover {
-  color: #2b6ca3;
-}
-
-.mtai-reaction__voter-photo {
-  width: 24px;
-  height: 24px;
-  border-radius: 12px;
-  object-fit: cover;
-  flex-shrink: 0;
-}
-
-.mtai-reaction__voter-photo--empty {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: #dfe7ec;
-  font-size: 12px;
-  color: #5f6a74;
-}
-
-.mtai-reaction__voter-name {
-  font-size: 13px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.mtai-reaction__voters-more,
-.mtai-reaction__voters-hint {
-  margin-top: 6px;
-  font-size: 13px;
-  color: #2b6ca3;
-}
-
-.mtai-reaction__voters-more {
-  border: none;
-  background: transparent;
-  padding: 0;
-  cursor: pointer;
-}
-
-.mtai-reaction__voters-hint {
-  color: #92979c;
+  align-items: baseline;
 }
 </style>

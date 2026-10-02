@@ -397,8 +397,7 @@ watch([sentinelInview, photosLoading, photoCursor], () => {
           </div>
           <div class="mtai-album__meta">
             <ReactionBar
-              small
-              :api="api"
+              :config="props.config"
               entity-type="IBLOCK_SECTION"
               :entity-id="album.id"
               :rating="album.rating"
@@ -471,7 +470,7 @@ watch([sentinelInview, photosLoading, photoCursor], () => {
           <span class="mtai-gallery__muted">{{ currentAlbum.count }} фото</span>
           <ReactionBar
             class="mtai-gallery__album-like"
-            :api="api"
+            :config="props.config"
             entity-type="IBLOCK_SECTION"
             :entity-id="currentAlbum.id"
             :rating="currentAlbum.rating"
@@ -527,6 +526,7 @@ watch([sentinelInview, photosLoading, photoCursor], () => {
 
       <PhotoGrid
         :api="api"
+        :config="props.config"
         :photos="photos"
         :can-edit="permissions.editPhoto"
         :can-delete="permissions.deletePhoto"

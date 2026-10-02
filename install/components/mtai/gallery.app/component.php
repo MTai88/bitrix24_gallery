@@ -46,10 +46,17 @@ $arResult['CONFIG'] = [
 	'sessid' => bitrix_sessid(),
 	'iblockId' => $iblockId,
 	'ajaxUrl' => '/bitrix/services/main/ajax.php',
-	// реакции (лайки) — штатный эндпоинт rating.vote, голоса в стандартных
-	// таблицах рейтингов; ключи данные списков приносят с собой
-	'voteUrl' => '/bitrix/components/bitrix/rating.vote/vote.ajax.php',
+	// реакции (лайки): голосование и список проголосовавших обслуживает сам
+	// RatingLike из main.rating (действия main.rating.vote / main.rating.list),
+	// голоса в стандартных таблицах рейтингов; ключи данные списков приносят с собой
 	'profilePath' => '/company/personal/user/#user_id#/',
+	// строки для RatingLike (как в lang rating.vote)
+	'userId' => (int)\Bitrix\Main\Engine\CurrentUser::get()->getId(),
+	'ratingTexts' => [
+		'like' => 'Нравится',
+		'dislike' => 'Не нравится',
+		'liked' => 'Это нравится',
+	],
 	'actions' => [
 		'albumList' => 'mtai:gallery.album.list',
 		'albumSave' => 'mtai:gallery.album.save',
@@ -82,6 +89,13 @@ foreach (['/local/js/mtai/image_editor/config.php', '/bitrix/js/mtai/image_edito
 
 // штатный просмотрщик изображений Bitrix24 (BX.UI.Viewer)
 Extension::load('ui.viewer');
+
+// реакции: штатный рендер живой ленты (RatingLike из main.rating + стили
+// like_react шаблона rating.vote) — кнопка «Нравится», анимированные смайлы,
+// попап «кто поставил» рисует и обслуживает сам main.rating
+Extension::load('main.rating');
+$APPLICATION->SetAdditionalCSS('/bitrix/components/bitrix/rating.vote/templates/like_react/popup.css');
+$APPLICATION->SetAdditionalCSS('/bitrix/components/bitrix/rating.vote/templates/like_react/style.css');
 
 // собранный Vue-бандл: имена с хешами читаем из manifest.json
 // (формат скаффолда Vite: main.js/main.css — вход, vendor.js — общий чанк)
