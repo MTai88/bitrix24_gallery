@@ -312,15 +312,16 @@ try {
   await page.locator('.mtai-modal__btn--primary').click();
   await page.waitForTimeout(1500);
 
-  // штатный графический редактор Bitrix24 (mtai.image_editor): открывается
-  // по кнопке карточки; закрываем без сохранения — обёртка должна отдать null
-  // и не менять карточку (фикс зависания промиса при отмене).
-  // Сначала закрываем попап голосовавших кликом мимо (иначе перекрывает кнопку)
+  // штатный графический редактор Bitrix24 (mtai.image_editor): кнопка живёт
+  // в попапе редактирования фото; закрываем без сохранения — обёртка должна
+  // отдать null и не менять карточку (фикс зависания промиса при отмене)
   await page.mouse.click(720, 80);
   await page.waitForTimeout(400);
   const srcBeforeEditor = await firstCard.locator('img[data-viewer]').getAttribute('src');
   await firstCard.hover();
-  await firstCard.locator('button[title="Редактировать изображение"]').click();
+  await firstCard.locator('button[title="Изменить название и подпись"]').click();
+  await page.locator('.mtai-photo-dialog__edit').waitFor({ state: 'visible', timeout: 5000 });
+  await page.locator('.mtai-photo-dialog__edit').click();
   const editorOpened = await page
     .waitForSelector('[class*="pesdk"], .pexelsui-Canvas, .main-image-editor', { timeout: 20000 })
     .then(() => true)
@@ -338,6 +339,9 @@ try {
     { timeout: 15000 },
   );
   await page.waitForTimeout(1000);
+  // закрыть попап редактирования (редактор из него уже закрыт)
+  await page.locator('.mtai-modal__btn--primary').click().catch(() => {});
+  await page.waitForTimeout(800);
   const srcAfterEditor = await firstCard.locator('img[data-viewer]').getAttribute('src');
   report('графический редактор открылся и закрылся без изменений', editorOpened && srcAfterEditor === srcBeforeEditor);
 
