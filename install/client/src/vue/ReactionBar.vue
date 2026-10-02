@@ -166,4 +166,97 @@ onMounted(mount);
   flex: 0 1 auto;
   min-width: 0;
 }
+
+/* ── обвязка под карточки галереи ────────────────────────────────────────
+   Штатные стили блока рассчитаны на белый фон ленты; здесь блок живёт
+   на фотографиях: белая пилюля-подложка, нейтральный текст, крупные
+   иконки без обрезки (штатно 18px с толстой белой врезкой и
+   max-height 22px — на карточке это режет спрайт). */
+
+.mtai-reaction {
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 14px;
+  padding: 3px 9px;
+  line-height: 1;
+  box-shadow: 0 1px 4px rgba(15, 18, 22, 0.18);
+}
+
+/* «Нравится» — нейтральный текст вместо ссылки в цвет портала */
+.mtai-reaction .ilike-light .bx-ilike-button {
+  height: auto;
+  color: #535c69;
+}
+
+.mtai-reaction .ilike-light .bx-ilike-text {
+  height: auto;
+  padding: 5px 0;
+  color: #535c69;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.mtai-reaction .ilike-light .bx-ilike-button:hover .bx-ilike-text {
+  color: #2fa6dd;
+}
+
+.mtai-reaction .ilike-light .bx-ilike-right-wrap {
+  height: auto;
+  margin-left: 7px;
+}
+
+.mtai-reaction .ilike-light .bx-ilike-right {
+  color: #535c69;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+/* текст «Вы и еще N»: контейнер штатно красит слова между спанами (#2066B0) */
+.mtai-reaction .feed-post-emoji-top-panel-box .feed-post-emoji-text-box {
+  color: #535c69;
+  font-size: 12px;
+  border-bottom: none;
+  margin: 0 0 0 7px;
+}
+
+.mtai-reaction .feed-post-emoji-top-panel-box .feed-post-emoji-text-box:hover {
+  border-bottom: none;
+}
+
+.mtai-reaction .feed-post-emoji-text-box .feed-post-emoji-text-item {
+  color: #535c69;
+  font-size: 12px;
+  border-bottom: none;
+}
+
+/* иконки реакций крупнее и целиком */
+.mtai-reaction .feed-post-emoji-icon-box,
+.mtai-reaction .feed-post-emoji-icon-container {
+  max-height: none;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.mtai-reaction .feed-post-emoji-top-panel-box .feed-post-emoji-icon-item,
+.mtai-reaction .feed-post-emoji-icon-item {
+  width: 24px;
+  height: 24px;
+  border: 2px solid #fff;
+  border-radius: 100%;
+  background-size: cover;
+  box-shadow: none;
+  margin-left: -7px;
+}
+
+.mtai-reaction .feed-post-emoji-top-panel-box .feed-post-emoji-icon-item-1,
+.mtai-reaction .feed-post-emoji-icon-item-1 {
+  margin-left: 0;
+}
+
+/* счётчик: в блоке два штатных (у кнопки и у иконок) — RatingLike обновляет
+   кнопочный, эмодзи-дубликат скрываем */
+.mtai-reaction .feed-post-emoji-icon-box .bx-ilike-right-wrap {
+  display: none;
+}
 </style>
