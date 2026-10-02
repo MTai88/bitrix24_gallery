@@ -69,19 +69,29 @@ mount = () => {
   // на размонтированных карточках роняет обработчик
   const likeId = `mtai-${props.entityType.toLowerCase()}-${props.entityId}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
   const youLike = rating.myReaction ? ' bx-you-like' : '';
+  // начальное «моё» состояние кнопки — как bx-you-like-button в log.entry
+  // (после голосования класс переключает сам RatingLike)
+  const youLikeButton = rating.myReaction ? ' bx-you-like-button' : '';
   const count = rating.count > 0 ? rating.count : 0;
   const hasReactions = Object.keys(rating.reactions).length > 0;
   const you = rating.myReaction !== null;
   const topUsersHtml = buildTopUsersText(you, Math.max(0, count - (you ? 1 : 0)));
 
+  // ВАЖНО: кнопка — СНАРУЖИ контейнера feed-post-emoji-top-panel-box, как в
+  // socialnetwork.log.entry (кнопка в строке информеров, панель отдельно):
+  // штатный CSS держит панель свёрнутой (max-height: 0 + overflow: hidden)
+  // до появления голосов — кнопка внутри контейнера обрезалась бы вместе
+  // с ней и была бы невидима на карточках без голосов.
+  // Счётчика (bx-ilike-right-wrap) в кнопке тоже нет — как в ленте: RatingLike
+  // тогда берёт счётчик из панели (bx-ilike-count-<id>), и при нуле голосов
+  // видна только подпись «Нравится», а не «0 Нравится»
   host.value.innerHTML = `
-<div id="feed-post-emoji-top-panel-container-${likeId}" class="feed-post-emoji-top-panel-box${count > 0 ? ' feed-post-emoji-top-panel-container-active' : ''}">
-  <span class="ilike-light">
-    <span class="bx-ilike-button" id="bx-ilike-button-${likeId}" data-vote-key-signed="${escHtml(rating.key)}">
-      <span class="bx-ilike-right-wrap${youLike}"><span class="bx-ilike-right">${count}</span></span>
-      <span class="bx-ilike-left-wrap"><a href="#like" class="bx-ilike-text">${escHtml(props.config.ratingTexts.like)}</a></span>
-    </span>
+<span class="ilike-light">
+  <span class="bx-ilike-button feed-new-like" id="bx-ilike-button-${likeId}" data-vote-key-signed="${escHtml(rating.key)}">
+    <span class="bx-ilike-left-wrap${youLikeButton}"><a href="#like" class="bx-ilike-text">${escHtml(props.config.ratingTexts.like)}</a></span>
   </span>
+</span>
+<div id="feed-post-emoji-top-panel-container-${likeId}" class="feed-post-emoji-top-panel-box${count > 0 ? ' feed-post-emoji-top-panel-container-active' : ''}">
   <div id="feed-post-emoji-top-panel-${likeId}" class="feed-post-emoji-container${hasReactions ? ' feed-post-emoji-container-nonempty' : ''}" data-popup="N">
     <span id="bx-ilike-user-reaction-${likeId}" data-value="${escHtml(rating.myReaction ?? '')}" style="display: none;"></span>
     <span id="feed-post-emoji-icons-${likeId}" class="feed-post-emoji-icon-box">
@@ -140,6 +150,20 @@ onMounted(mount);
    содержимым и стилями — локально только контейнер */
 .mtai-reaction {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
+  gap: 4px;
+}
+</style>
+
+<!-- разметка собирается через innerHTML — scoped-атрибутов на ней нет,
+     поэтому переопределение штатных стилей ленты глобальное -->
+<style>
+/* у панели реакций убираем отступы живой ленты (панель под постом
+   со сдвигом): у нас она в строку рядом с кнопкой */
+.mtai-reaction .feed-post-emoji-top-panel-box {
+  padding: 0;
+  margin: 0;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 </style>

@@ -148,6 +148,11 @@ page.on('response', async (response) => {
     const text = await response.text().catch(() => '');
     console.log(`[vote.ajax ${response.status()}] ${text.slice(0, 120)}`);
   }
+  // диагностика «пустого» старта: что реально ответил album.list браузеру
+  if (response.url().includes('gallery.album.list')) {
+    const text = await response.text().catch(() => '');
+    console.log(`[album.list ${response.status()}] ${text.slice(0, 200)}`);
+  }
 });
 
 /**
