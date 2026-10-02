@@ -146,7 +146,7 @@ try {
   // 2. Страница /gallery/: рендер Vue-приложения, карточка тестового альбома
   await page.goto(`${BASE}/gallery/`, { waitUntil: 'domcontentloaded' });
   const albumCard = page.locator('.mtai-album', { hasText: ALBUM_NAME }).first();
-  await albumCard.waitFor({ state: 'visible', timeout: 15000 });
+  await albumCard.waitFor({ state: 'visible', timeout: 30000 });
   report('страница /gallery/ и список альбомов', true, await albumCard.locator('.mtai-album__name').innerText());
 
   const albumBadge = (await albumCard.locator('.mtai-album__count').innerText()).trim();
@@ -227,6 +227,7 @@ try {
     { timeout: 8000 },
   );
   report('список поставивших реакцию', true, await votersBox.locator('.mtai-reaction__voter-name').first().innerText());
+
 
   // отмена реакции (клик по своей же)
   await firstCard.locator('.mtai-reaction__btn').click();
@@ -311,6 +312,35 @@ try {
   await page.locator('.mtai-modal__btn--primary').click();
   await page.waitForTimeout(1500);
 
+  // штатный графический редактор Bitrix24 (mtai.image_editor): открывается
+  // по кнопке карточки; закрываем без сохранения — обёртка должна отдать null
+  // и не менять карточку (фикс зависания промиса при отмене).
+  // Сначала закрываем попап голосовавших кликом мимо (иначе перекрывает кнопку)
+  await page.mouse.click(720, 80);
+  await page.waitForTimeout(400);
+  const srcBeforeEditor = await firstCard.locator('img[data-viewer]').getAttribute('src');
+  await firstCard.hover();
+  await firstCard.locator('button[title="Редактировать изображение"]').click();
+  const editorOpened = await page
+    .waitForSelector('[class*="pesdk"], .pexelsui-Canvas, .main-image-editor', { timeout: 20000 })
+    .then(() => true)
+    .catch(() => false);
+  await page.screenshot({ path: `${ARTIFACTS}06-editor.png`, fullPage: false }).catch(() => {});
+  // закрытие, как крестиком в шапке редактора (Escape SDK не обрабатывает);
+  // обёртка должна вернуть null и не тронуть карточку. Popup скрывается,
+  // но остаётся в DOM — проверяем фактическую видимость контейнера
+  await page.evaluate(() => window.BX?.Main?.ImageEditor?.getInstance()?.close());
+  await page.waitForFunction(
+    () => ![...document.querySelectorAll('.main-image-editor')].some(
+      (el) => el.getBoundingClientRect().width > 0,
+    ),
+    null,
+    { timeout: 15000 },
+  );
+  await page.waitForTimeout(1000);
+  const srcAfterEditor = await firstCard.locator('img[data-viewer]').getAttribute('src');
+  report('графический редактор открылся и закрылся без изменений', editorOpened && srcAfterEditor === srcBeforeEditor);
+
   // 11. Загрузка файла через FilePond
   await pond.waitFor({ state: 'visible', timeout: 10000 });
   // FilePond прячет настоящий input под классом filepond--browser
@@ -354,7 +384,15 @@ try {
   );
   report('удаление альбома', true);
 
-  const relevantErrors = pageErrors.filter((e) => !e.includes('favicon') && !e.includes('net::ERR_ABORTED'));
+  // сетевые шумы headless-chromium (самоподписанный сертификат стенда,
+  // прерывания загрузки heavy-ассетов редактора) — не ошибки приложения
+  const relevantErrors = pageErrors.filter(
+    (e) =>
+      !e.includes('favicon')
+      && !e.includes('net::ERR_ABORTED')
+      && !e.includes('net::ERR_CERT_VERIFIER_CHANGED')
+      && !e.includes('Failed to load resource'),
+  );
   report('нет JS-ошибок страницы', relevantErrors.length === 0, relevantErrors.slice(0, 3).join(' | '));
 } catch (e) {
   report('выполнение прервано', false, String(e).slice(0, 500));

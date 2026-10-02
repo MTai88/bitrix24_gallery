@@ -47,6 +47,8 @@ export interface GalleryConfig {
   ajaxUrl: string;
   voteUrl: string;
   profilePath: string;
+  /** доступно расширение mtai.image_editor (кнопки редактирования) */
+  imageEditor: boolean;
   actions: {
     albumList: string;
     albumSave: string;

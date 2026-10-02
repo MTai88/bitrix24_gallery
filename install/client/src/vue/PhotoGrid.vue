@@ -9,11 +9,17 @@ const props = defineProps<{
   photos: Photo[];
   canEdit: boolean;
   canDelete: boolean;
+  /** доступен штатный редактор изображений (config.imageEditor) */
+  canEditImage: boolean;
+  /** id фотографии, которая сейчас редактируется (кнопка занята) */
+  editingId: number | null;
 }>();
 
 const emit = defineEmits<{
   edit: [photo: Photo];
   delete: [photo: Photo];
+  /** открыть штатный редактор изображений */
+  editImage: [photo: Photo];
   /** порядок изменён перетаскиванием — присылается новый массив */
   reorder: [photos: Photo[]];
 }>();
@@ -141,6 +147,23 @@ function formatSize(size: number): string {
         v-if="canEdit || canDelete"
         class="mtai-photo-card__actions"
       >
+        <button
+          v-if="canEdit && canEditImage"
+          class="mtai-photo-card__btn"
+          type="button"
+          :disabled="editingId !== null"
+          title="Редактировать изображение"
+          @click.stop="emit('editImage', photo)"
+        >
+          <svg
+            viewBox="0 0 16 16"
+            width="14"
+            height="14"
+          ><path
+            d="M2.5 13.5l.7-2.8 7-7 2.1 2.1-7 7-2.8.7zm8.4-10.6l1.2-1.2c.4-.4 1-.4 1.4 0l.7.7c.4.4.4 1 0 1.4l-1.2 1.2-2.1-2.1zM5 2l.5 1.2L6.7 3.7 5.5 4.2 5 5.4l-.5-1.2L3.3 3.7l1.2-.5L5 2zm6.5 6l.4.9.9.4-.9.4-.4.9-.4-.9-.9-.4.9-.4.4-.9z"
+            fill="currentColor"
+          /></svg>
+        </button>
         <button
           v-if="canEdit"
           class="mtai-photo-card__btn"

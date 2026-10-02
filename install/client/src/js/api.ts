@@ -68,6 +68,30 @@ export class Api {
     await this.post('albumReorder', { ids: ids.join(',') });
   }
 
+  /**
+   * Замена изображения существующей фотографии файлом (из редактора и т.п.).
+   * Возвращает обновлённую карточку.
+   */
+  async photoReplace(id: number, file: File): Promise<import('./types').Photo> {
+    const body = new FormData();
+    body.set('sessid', this.config.sessid);
+    body.set('id', String(id));
+    // файл из редактора может прийти без расширения в имени — серверная
+    // валидация смотрит расширение, восстановим его из mime-типа
+    let name = file.name || 'photo';
+    if (!/\.[a-z0-9]+$/i.test(name) && file.type && file.type.startsWith('image/')) {
+      name += '.' + (file.type.split('/')[1].split('+')[0] || 'jpg').toLowerCase();
+    }
+    body.set('file', file, name);
+
+    const response = await fetch(this.actionUrl(this.config.actions.photoReplace), {
+      method: 'POST',
+      credentials: 'same-origin',
+      body,
+    });
+    return this.unwrap(await response.json(), 'photoReplace');
+  }
+
   async photoUpdate(id: number, name: string, description: string): Promise<void> {
     await this.post('photoUpdate', { id, name, description });
   }

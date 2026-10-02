@@ -66,6 +66,20 @@ $arResult['CONFIG'] = [
 	'permissions' => Permission::getFlags($iblockId),
 ];
 
+// редактор изображений: расширение mtai.image_editor (обёртка над штатным
+// редактором «Сайтов», репозиторий bitrix24_image_editor) + модуль landing.
+// Если расширения нет — кнопки редактирования просто не будет
+$arResult['CONFIG']['imageEditor'] = false;
+foreach (['/local/js/mtai/image_editor/config.php', '/bitrix/js/mtai/image_editor/config.php'] as $editorConfig)
+{
+	if (is_file(Application::getDocumentRoot() . $editorConfig))
+	{
+		Extension::load('mtai.image_editor');
+		$arResult['CONFIG']['imageEditor'] = true;
+		break;
+	}
+}
+
 // штатный просмотрщик изображений Bitrix24 (BX.UI.Viewer)
 Extension::load('ui.viewer');
 

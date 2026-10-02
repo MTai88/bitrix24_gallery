@@ -3,6 +3,7 @@ import { onMounted, reactive, ref, watch } from 'vue';
 import type { Album, GalleryConfig, Permissions, Photo } from '../js/types';
 import { Api } from '../js/api';
 import { bindViewer } from '../js/viewer';
+import { editImage } from '../js/editor';
 import PhotoGrid from './PhotoGrid.vue';
 import ReactionBar from './ReactionBar.vue';
 import InfiniteSentinel from './InfiniteSentinel.vue';
@@ -102,6 +103,29 @@ async function savePhotoOrder(reordered: Photo[]): Promise<void> {
     photoCursor.value = 0;
     photos.value = [];
     await loadMorePhotos();
+  }
+}
+
+/** фото, открытое в графическом редакторе (кнопка карточки занята) */
+const editingPhotoId = ref<number | null>(null);
+
+/** Штатный редактор изображений Bitrix24: File → photo.replace. */
+async function editPhotoImage(photo: Photo): Promise<void> {
+  if (editingPhotoId.value !== null) {
+    return;
+  }
+  editingPhotoId.value = photo.id;
+  photosError.value = '';
+  try {
+    const file = await editImage(photo.fullUrl);
+    if (file) {
+      const updated = await api.photoReplace(photo.id, file);
+      onPhotoReplaced(updated);
+    }
+  } catch (e) {
+    photosError.value = e instanceof Error ? e.message : 'Не удалось сохранить отредактированное изображение';
+  } finally {
+    editingPhotoId.value = null;
   }
 }
 
@@ -527,8 +551,11 @@ watch([sentinelInview, photosLoading, photoCursor], () => {
         :photos="photos"
         :can-edit="permissions.editPhoto"
         :can-delete="permissions.deletePhoto"
+        :can-edit-image="props.config.imageEditor"
+        :editing-id="editingPhotoId"
         @edit="askEditPhoto"
         @delete="askDeletePhoto"
+        @edit-image="editPhotoImage"
         @reorder="savePhotoOrder"
       />
 

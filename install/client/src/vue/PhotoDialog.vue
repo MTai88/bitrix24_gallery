@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue';
 import type { GalleryConfig, Photo } from '../js/types';
 import type { Api } from '../js/api';
+import { editImage } from '../js/editor';
 import Uploader from './Uploader.vue';
 
 const props = defineProps<{
@@ -42,6 +43,28 @@ watch(
 function onReplaced(photo: Photo): void {
   previewUrl.value = photo.thumbUrl;
   emit('replaced', photo);
+}
+
+/** Штатный редактор Bitrix24: результат сразу уходит в photo.replace. */
+const editingImage = ref(false);
+
+async function editCurrent(): Promise<void> {
+  if (!props.photo || editingImage.value) {
+    return;
+  }
+  editingImage.value = true;
+  error.value = '';
+  try {
+    const file = await editImage(props.photo.fullUrl);
+    if (file && props.photo) {
+      const updated = await props.api.photoReplace(props.photo.id, file);
+      onReplaced(updated);
+    }
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Не удалось сохранить отредактированное изображение';
+  } finally {
+    editingImage.value = false;
+  }
 }
 
 async function submit(): Promise<void> {
@@ -90,6 +113,15 @@ async function submit(): Promise<void> {
             idle-label="Перетащите изображение или &lt;span class='filepond--label-action'&gt;выберите&lt;/span&gt; — применяется сразу"
             @added="onReplaced"
           />
+          <button
+            v-if="config.imageEditor"
+            class="mtai-modal__btn mtai-photo-dialog__edit"
+            type="button"
+            :disabled="editingImage"
+            @click="editCurrent"
+          >
+            {{ editingImage ? 'Открытие редактора…' : 'Редактировать в графическом редакторе' }}
+          </button>
         </template>
         <label class="mtai-modal__label">Название</label>
         <input
@@ -136,6 +168,11 @@ async function submit(): Promise<void> {
 </template>
 
 <style scoped>
+<style scoped>
+.mtai-photo-dialog__edit {
+  margin-top: 8px;
+}
+
 /* диалог телепортируется в body — вне .mtai-gallery, глобального box-sizing
    нет; width:100% у полей с padding/border вылезал за окно */
 .mtai-modal,
