@@ -46,22 +46,22 @@
 Сетка альбомов: обложка (первая по ручной сортировке фотография), счётчик,
 реакции живой ленты; пустой альбом помечается заглушкой «нет фото».
 
-![Сетка альбомов галереи](docs/screenshots-gallery-albums.png)
+![Сетка альбомов галереи](mtai.gallery/docs/screenshots-gallery-albums.png)
 
 Альбом: сетка фотографий с автоподгрузкой при скролле, зона загрузки
 FilePond, реакции и счётчик; выбор смайла — штатная панель живой ленты.
 
-![Альбом с фотографиями](docs/screenshots-gallery-album.png)
+![Альбом с фотографиями](mtai.gallery/docs/screenshots-gallery-album.png)
 
 Попап редактирования фотографии: название и подпись, замена изображения
 через FilePond и кнопка редактора на самом изображении.
 
-![Попап редактирования фотографии](docs/screenshots-gallery-edit.png)
+![Попап редактирования фотографии](mtai.gallery/docs/screenshots-gallery-edit.png)
 
 Штатный редактор изображений Bitrix24 (кадрирование, поворот, фильтры,
 стикеры, текст) — результат сохраняется как замена изображения.
 
-![Редактор изображений](docs/screenshots-gallery-editor.png)
+![Редактор изображений](mtai.gallery/docs/screenshots-gallery-editor.png)
 
 ## Установка
 
@@ -80,11 +80,11 @@ docker exec bitrix24_test-php-1 php /var/www/html/local/tools/gallery_install.ph
 
 ## Сборка клиента
 
-Клиент — Vite-проект в `install/client/` (сборка `dist/` закоммичена,
+Клиент — Vite-проект в `mtai.gallery/install/client/` (сборка `dist/` закоммичена,
 для установки Node не нужен). Пересборка:
 
 ```bash
-cd install/client
+cd mtai.gallery/install/client
 npm ci
 npm run build        # dist/ + manifest.json
 # затем переустановить модуль (скопирует свежий dist)
@@ -97,6 +97,8 @@ docker run --rm -v "$PWD:/app" -w /app node:22-alpine sh -c "npm ci && npm run b
 ```
 
 ## Архитектура
+
+> Пути ниже — внутри папки модуля `mtai.gallery/`.
 
 ```
 /gallery/  (install/public/gallery/index.php, шаблон портала)
