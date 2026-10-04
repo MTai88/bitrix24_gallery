@@ -18,8 +18,10 @@ use Bitrix\Main\Security\Sign\TimeSigner;
  */
 final class Rating
 {
-	/** Реакции живой ленты (эмодзи знает клиент). */
-	public const REACTIONS = ['like', 'kiss', 'laugh', 'wonder', 'cry', 'anger', 'facepalm'];
+	/** Реакции живой ленты (эмодзи знает клиент); имена — как в ядре
+	 *  (RatingRender.reactionsList: 'angry', не 'anger' — иначе Lottie-данных
+	 *  для иконки нет и она не рисуется). */
+	public const REACTIONS = ['like', 'kiss', 'laugh', 'wonder', 'cry', 'angry', 'facepalm'];
 
 	/**
 	 * Пакет данных реакций для списка сущностей.

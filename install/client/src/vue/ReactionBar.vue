@@ -150,6 +150,8 @@ onMounted(mount);
     ref="host"
     class="mtai-reaction"
     :class="`mtai-reaction--${props.variant}`"
+    @click.stop
+    @keyup.stop
   />
 </template>
 

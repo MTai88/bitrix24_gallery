@@ -90,6 +90,7 @@ async function submit(): Promise<void> {
     <div
       v-if="open && photo"
       class="mtai-modal"
+      :class="{ 'mtai-modal--lowered': editingImage }"
       @click.self="emit('update:open', false)"
     >
       <div class="mtai-modal__dialog">
@@ -203,6 +204,13 @@ async function submit(): Promise<void> {
   align-items: center;
   justify-content: center;
   background: rgba(15, 18, 22, 0.5);
+}
+
+/* редактор PhotoEditorSDK открывается своим popup с z-index 900 —
+   на время редактирования присаживаем модалку ниже, чтобы редактор
+   был поверх неё */
+.mtai-modal--lowered {
+  z-index: 800;
 }
 
 .mtai-modal__dialog {

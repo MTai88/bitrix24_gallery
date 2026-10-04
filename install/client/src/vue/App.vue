@@ -751,14 +751,17 @@ watch([sentinelInview, photosLoading, photoCursor], () => {
   font-size: 12px;
 }
 
-/* белая плашка на всю ширину обложки: название + реакции с новой строки */
+/* белая плашка на всю ширину обложки: название + реакции с новой строки;
+   непрозрачная — сквозь полупрозрачную просвечивало фото */
 .mtai-album__overlay {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
   padding: 7px 10px 8px;
-  background: rgba(255, 255, 255, 0.94);
+  background: #fff;
+  border-bottom-left-radius: 10px;
+  border-bottom-right-radius: 10px;
 }
 
 .mtai-album__name {
