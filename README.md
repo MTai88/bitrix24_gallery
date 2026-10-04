@@ -65,18 +65,16 @@ FilePond, реакции и счётчик; выбор смайла — штат
 
 ## Установка
 
-Стенд bitrix24_test:
-
-```bash
-docker exec bitrix24_test-php-1 php /var/www/html/local/tools/gallery_install.php install
-```
-
-или из админки: `Настройки → Модули → Галерея (mtai.gallery) → Установить`.
+Скопируйте папку `mtai.gallery/` в `<site>/local/modules/` и установите
+модуль из админки: `Настройки → Модули → Галерея (mtai.gallery) → Установить`.
 
 Установщик создаёт тип инфоблоков `mtai_gallery`, инфоблок «Галерея» с
 расширенными правами, публикует страницу `/gallery/`, копирует компонент
 `mtai:gallery.app` в `local/components/mtai/` и собранный клиент в
 `/bitrix/js/mtai.gallery/dist/`.
+
+Требуется модуль `landing` (для редактора изображений) — без него кнопки
+редактирования просто не показываются.
 
 ## Сборка клиента
 
