@@ -96,12 +96,34 @@ async function submit(): Promise<void> {
         <div class="mtai-modal__title">
           Фотография
         </div>
-        <img
+        <div
           v-if="previewUrl"
-          class="mtai-photo-dialog__preview"
-          :src="previewUrl"
-          :alt="photo.name"
+          class="mtai-photo-dialog__preview-wrap"
         >
+          <img
+            class="mtai-photo-dialog__preview"
+            :src="previewUrl"
+            :alt="photo.name"
+          >
+          <button
+            v-if="canReplace && config.imageEditor && photo"
+            class="mtai-photo-dialog__edit"
+            type="button"
+            :disabled="editingImage"
+            :title="editingImage ? 'Открытие редактора…' : 'Редактировать изображение'"
+            @click="editCurrent"
+          >
+            <svg
+              viewBox="0 0 16 16"
+              width="14"
+              height="14"
+            ><path
+              d="M11.3 1.7a2.4 2.4 0 0 1 3.4 3.4l-8.5 8.5-4 1.1 1.1-4 8-8zM10 4l2.3 2.3 1.3-1.3a1.1 1.1 0 0 0-1.6-1.6L10.7 4 10 4z"
+              fill="currentColor"
+            /></svg>
+            <span>{{ editingImage ? 'Открываем редактор…' : 'Редактировать' }}</span>
+          </button>
+        </div>
         <template v-if="canReplace && photo">
           <label class="mtai-modal__label">Заменить изображение</label>
           <Uploader
@@ -113,15 +135,6 @@ async function submit(): Promise<void> {
             idle-label="Перетащите изображение или &lt;span class='filepond--label-action'&gt;выберите&lt;/span&gt; — применяется сразу"
             @added="onReplaced"
           />
-          <button
-            v-if="config.imageEditor"
-            class="mtai-modal__btn mtai-photo-dialog__edit"
-            type="button"
-            :disabled="editingImage"
-            @click="editCurrent"
-          >
-            {{ editingImage ? 'Открытие редактора…' : 'Редактировать в графическом редакторе' }}
-          </button>
         </template>
         <label class="mtai-modal__label">Название</label>
         <input
@@ -215,12 +228,44 @@ async function submit(): Promise<void> {
   color: #7d8288;
 }
 
+.mtai-photo-dialog__preview-wrap {
+  position: relative;
+}
+
 .mtai-photo-dialog__preview {
   width: 100%;
   aspect-ratio: 1 / 1;
   object-fit: cover;
   border-radius: 8px;
   background: #eef1f5;
+}
+
+/* кнопка редактирования поверх изображения — белая плашка с карандашом */
+.mtai-photo-dialog__edit {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #232323;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(15, 18, 22, 0.25);
+}
+
+.mtai-photo-dialog__edit:hover {
+  color: #0f8fbf;
+}
+
+.mtai-photo-dialog__edit:disabled {
+  opacity: 0.7;
+  cursor: default;
 }
 
 .mtai-modal__input,

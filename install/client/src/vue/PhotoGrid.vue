@@ -181,7 +181,7 @@ function formatSize(size: number): string {
 <style scoped>
 .mtai-photo-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 12px;
   margin-top: 16px;
 }

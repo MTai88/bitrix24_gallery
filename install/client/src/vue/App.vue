@@ -394,7 +394,7 @@ watch([sentinelInview, photosLoading, photoCursor], () => {
                 :title="album.name"
               >{{ album.name }}</span>
               <ReactionBar
-                variant="dark"
+                variant="plain"
                 :config="props.config"
                 entity-type="IBLOCK_SECTION"
                 :entity-id="album.id"
@@ -469,7 +469,7 @@ watch([sentinelInview, photosLoading, photoCursor], () => {
           <span class="mtai-gallery__muted">{{ currentAlbum.count }} фото</span>
           <ReactionBar
             class="mtai-gallery__album-like"
-            variant="dark"
+            variant="plain"
             :config="props.config"
             entity-type="IBLOCK_SECTION"
             :entity-id="currentAlbum.id"
@@ -751,30 +751,26 @@ watch([sentinelInview, photosLoading, photoCursor], () => {
   font-size: 12px;
 }
 
-/* плашка поверх низа обложки: название + реакции на полупрозрачном чёрном */
+/* белая плашка на всю ширину обложки: название + реакции с новой строки */
 .mtai-album__overlay {
   position: absolute;
-  left: 8px;
-  right: 8px;
-  bottom: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 5px 8px 5px 10px;
-  border-radius: 8px;
-  background: rgba(15, 18, 22, 0.55);
-  backdrop-filter: blur(4px);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 7px 10px 8px;
+  background: rgba(255, 255, 255, 0.94);
 }
 
 .mtai-album__name {
-  color: #fff;
+  display: block;
+  color: #232323;
   font-weight: 600;
   font-size: 13px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+  margin-bottom: 2px;
 }
 
 .mtai-gallery__album-like {
