@@ -388,19 +388,19 @@ watch([sentinelInview, photosLoading, photoCursor], () => {
               нет фото
             </div>
             <span class="mtai-album__count">{{ album.count }}</span>
-            <div class="mtai-album__overlay">
-              <span
-                class="mtai-album__name"
-                :title="album.name"
-              >{{ album.name }}</span>
-              <ReactionBar
-                variant="plain"
-                :config="props.config"
-                entity-type="IBLOCK_SECTION"
-                :entity-id="album.id"
-                :rating="album.rating"
-              />
-            </div>
+          </div>
+          <div class="mtai-album__info">
+            <span
+              class="mtai-album__name"
+              :title="album.name"
+            >{{ album.name }}</span>
+            <ReactionBar
+              variant="plain"
+              :config="props.config"
+              entity-type="IBLOCK_SECTION"
+              :entity-id="album.id"
+              :rating="album.rating"
+            />
           </div>
           <div
             v-if="permissions.editAlbum || permissions.deleteAlbum"
@@ -715,7 +715,6 @@ watch([sentinelInview, photosLoading, photoCursor], () => {
 .mtai-album__cover {
   position: relative;
   aspect-ratio: 1 / 1;
-  border-radius: 10px;
   overflow: hidden;
   background: #eef1f5;
 }
@@ -753,15 +752,26 @@ watch([sentinelInview, photosLoading, photoCursor], () => {
 
 /* белая плашка на всю ширину обложки: название + реакции с новой строки;
    непрозрачная — сквозь полупрозрачную просвечивало фото */
-.mtai-album__overlay {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  padding: 7px 10px 8px;
+/* карточка: обложка сверху, блок с названием и реакциями ПОД изображением */
+.mtai-album {
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
   background: #fff;
-  border-bottom-left-radius: 10px;
-  border-bottom-right-radius: 10px;
+  box-shadow: 0 0 0 1px #eef1f5;
+  transition: box-shadow 0.2s ease;
+}
+
+.mtai-album:hover {
+  box-shadow: 0 0 0 1px #eef1f5, 0 4px 14px rgba(15, 18, 22, 0.1);
+}
+
+.mtai-album__info {
+  padding: 8px 10px 9px;
+}
+
+.mtai-album__info .mtai-reaction {
+  margin-top: 3px;
 }
 
 .mtai-album__name {
@@ -773,7 +783,6 @@ watch([sentinelInview, photosLoading, photoCursor], () => {
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
-  margin-bottom: 2px;
 }
 
 .mtai-gallery__album-like {
