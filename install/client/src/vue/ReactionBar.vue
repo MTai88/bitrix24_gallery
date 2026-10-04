@@ -60,7 +60,10 @@ function buildTopUsersText(you: boolean, more: number): string {
   if (you) {
     return more > 0 ? `${span('Вы')}&nbsp;и еще ${span(more)}` : span('Вы');
   }
-  return more > 0 ? span(more) : '';
+  // «не вы»: голая цифра дублировала бы счётчик рядом с иконками; узел
+  // top-users в этом случае не рендерим вовсе — ядро привяжет попап
+  // «кто поставил» к счётчику (fallback topUsersText → count)
+  return '';
 }
 
 // сборка и инициализация блока; вызывается при монтировании и при обновлении
@@ -107,7 +110,7 @@ mount = () => {
         <div class="feed-post-emoji-text-item bx-ilike-right${count <= 0 ? ' feed-post-emoji-text-counter-invisible' : ''}">${count}</div>
       </div>
     </span>
-    <div class="feed-post-emoji-text-box" id="bx-ilike-top-users-${likeId}">${topUsersHtml}</div>
+    ${topUsersHtml ? `<div class="feed-post-emoji-text-box" id="bx-ilike-top-users-${likeId}">${topUsersHtml}</div>` : ''}
     <span style="display: none;" id="bx-ilike-top-users-data-${likeId}" data-users="${escHtml(JSON.stringify({ TOP: [], MORE: count }))}"></span>
   </div>
   <span class="bx-ilike-wrap-block bx-ilike-wrap-block-react" id="bx-ilike-popup-cont-${likeId}" style="display:none;">
