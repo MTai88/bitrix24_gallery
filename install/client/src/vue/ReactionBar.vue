@@ -159,7 +159,6 @@ onMounted(mount);
 .mtai-reaction {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
 }
 </style>
 
@@ -184,7 +183,7 @@ onMounted(mount);
 .mtai-reaction {
   background: rgba(255, 255, 255, 0.92);
   border-radius: 14px;
-  padding: 3px 9px;
+  padding: 4px 9px;
   line-height: 1;
   box-shadow: 0 1px 4px rgba(15, 18, 22, 0.18);
 }
@@ -251,17 +250,30 @@ onMounted(mount);
   border-bottom: none;
 }
 
-/* иконки реакций крупнее и целиком */
+/* иконки реакций крупнее и целиком; вертикаль — по центру строки,
+   иначе inline-block на базовой линии подрезается снизу пилюлей.
+   !important против штатных .feed-post-emoji-icon-box-show { max-height: 22px }
+   (два класса, порядок загрузки CSS не гарантирован) — иначе низ иконки
+   срезается ровно на 2px */
 .mtai-reaction .feed-post-emoji-icon-box,
-.mtai-reaction .feed-post-emoji-icon-container {
-  max-height: none;
+.mtai-reaction .feed-post-emoji-icon-box.feed-post-emoji-icon-box-show,
+.mtai-reaction .feed-post-emoji-icon-container,
+.mtai-reaction .feed-post-emoji-top-panel-box .feed-post-emoji-icon-box,
+.mtai-reaction .feed-post-emoji-top-panel-box .feed-post-emoji-icon-container {
+  max-height: none !important;
   height: auto;
   min-width: 0;
   min-height: 0;
+  line-height: 0;
+  overflow: visible;
+  align-items: center;
 }
 
 .mtai-reaction .feed-post-emoji-top-panel-box .feed-post-emoji-icon-item,
 .mtai-reaction .feed-post-emoji-icon-item {
+  /* border-box: 24px ВМЕСТЕ с рамкой — иначе иконка 28px вылезает
+     на 2px ниже пилюли (глобального box-sizing тут нет) */
+  box-sizing: border-box;
   width: 24px;
   height: 24px;
   border: 2px solid #fff;
@@ -269,16 +281,23 @@ onMounted(mount);
   background-size: cover;
   box-shadow: none;
   margin-left: -7px;
+  vertical-align: middle;
+  align-self: center;
+}
+
+/* панель без иконок (ни одного голоса) не должна раздувать пилюлю справа:
+   скрытый счётчик-элемент — тоже элемент, поэтому матчим строго по иконкам
+   (при голосах реакции есть всегда, при нуле — панели нет) */
+.mtai-reaction .feed-post-emoji-top-panel-box:not(:has(.feed-post-emoji-icon-item)) {
+  display: none;
+}
+
+.mtai-reaction .feed-post-emoji-top-panel-box {
+  margin-left: 7px;
 }
 
 .mtai-reaction .feed-post-emoji-top-panel-box .feed-post-emoji-icon-item-1,
 .mtai-reaction .feed-post-emoji-icon-item-1 {
   margin-left: 0;
-}
-
-/* счётчик: в блоке два штатных (у кнопки и у иконок) — RatingLike обновляет
-   кнопочный, эмодзи-дубликат скрываем */
-.mtai-reaction .feed-post-emoji-icon-box .bx-ilike-right-wrap {
-  display: none;
 }
 </style>
