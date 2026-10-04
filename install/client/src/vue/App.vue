@@ -388,21 +388,19 @@ watch([sentinelInview, photosLoading, photoCursor], () => {
               нет фото
             </div>
             <span class="mtai-album__count">{{ album.count }}</span>
-          </div>
-          <div
-            class="mtai-album__name"
-            :title="album.name"
-          >
-            {{ album.name }}
-          </div>
-          <div class="mtai-album__meta">
-            <ReactionBar
-              variant="plain"
-              :config="props.config"
-              entity-type="IBLOCK_SECTION"
-              :entity-id="album.id"
-              :rating="album.rating"
-            />
+            <div class="mtai-album__overlay">
+              <span
+                class="mtai-album__name"
+                :title="album.name"
+              >{{ album.name }}</span>
+              <ReactionBar
+                variant="dark"
+                :config="props.config"
+                entity-type="IBLOCK_SECTION"
+                :entity-id="album.id"
+                :rating="album.rating"
+              />
+            </div>
           </div>
           <div
             v-if="permissions.editAlbum || permissions.deleteAlbum"
@@ -471,7 +469,7 @@ watch([sentinelInview, photosLoading, photoCursor], () => {
           <span class="mtai-gallery__muted">{{ currentAlbum.count }} фото</span>
           <ReactionBar
             class="mtai-gallery__album-like"
-            variant="plain"
+            variant="dark"
             :config="props.config"
             entity-type="IBLOCK_SECTION"
             :entity-id="currentAlbum.id"
@@ -753,16 +751,30 @@ watch([sentinelInview, photosLoading, photoCursor], () => {
   font-size: 12px;
 }
 
+/* плашка поверх низа обложки: название + реакции на полупрозрачном чёрном */
+.mtai-album__overlay {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 8px 5px 10px;
+  border-radius: 8px;
+  background: rgba(15, 18, 22, 0.55);
+  backdrop-filter: blur(4px);
+}
+
 .mtai-album__name {
-  margin-top: 8px;
+  color: #fff;
   font-weight: 600;
+  font-size: 13px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.mtai-album__meta {
-  margin-top: 6px;
+  min-width: 0;
 }
 
 .mtai-gallery__album-like {

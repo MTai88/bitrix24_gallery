@@ -202,6 +202,28 @@ onMounted(mount);
   box-shadow: none;
 }
 
+/* тёмный чип (на белом фоне тулбара/плашки альбома): реакции со светлыми
+   спрайтами и белыми кольцами читаются только на тёмном */
+.mtai-reaction--dark {
+  background: rgba(15, 18, 22, 0.55);
+  border-radius: 14px;
+  padding: 3px 9px;
+  box-shadow: none;
+  flex-shrink: 0;
+}
+
+.mtai-reaction--dark .ilike-light .bx-ilike-button,
+.mtai-reaction--dark .ilike-light .bx-ilike-text,
+.mtai-reaction--dark .ilike-light .bx-ilike-right,
+.mtai-reaction--dark .feed-post-emoji-top-panel-box .feed-post-emoji-text-box,
+.mtai-reaction--dark .feed-post-emoji-text-box .feed-post-emoji-text-item {
+  color: #fff;
+}
+
+.mtai-reaction--dark .ilike-light .bx-ilike-button:hover .bx-ilike-text {
+  color: #7fd6ff;
+}
+
 /* «Нравится» — нейтральный текст вместо ссылки в цвет портала */
 .mtai-reaction .ilike-light .bx-ilike-button {
   height: auto;
