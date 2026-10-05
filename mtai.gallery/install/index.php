@@ -12,6 +12,7 @@
  */
 
 use Bitrix\Main\Application;
+use Bitrix\Main\EventManager;
 use Bitrix\Main\Localization\Loc;
 use Bitrix\Main\ModuleManager;
 use Mtai\Gallery\IblockManager;
